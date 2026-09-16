@@ -72,9 +72,9 @@ if (loading) {
               <img
                 src="/logo.svg"
                 alt="ShinyBella"
-                className="w-8 h-8"
+                className="w-10 h-10"
               />
-              <span className="font-bold text-xl text-primary hidden xs:block">ShinyBella</span>
+              <span className="font-bold text-xl text-primary hidden sm:block">ShinyBella</span>
             </Link>
           </div>
         </nav>
@@ -91,9 +91,9 @@ if (loading) {
               <img
                 src="/logo.svg"
                 alt="ShinyBella"
-                className="w-8 h-8"
+                className="w-10 h-10"
               />
-              <span className="font-bold text-xl text-primary hidden xs:block">ShinyBella</span>
+              <span className="font-bold text-xl text-primary hidden sm:block">ShinyBella</span>
             </Link>
           </div>
 

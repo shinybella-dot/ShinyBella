@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { MapPin, Phone, Mail, Camera, MapPin as MapPinIcon, MessageSquare, Music } from 'lucide-react';
+import { MapPin, Phone, Mail, Camera, MessageSquare, Music } from 'lucide-react';
 
 const footerLinks = {
   empresa: [
@@ -54,9 +54,11 @@ export default function Footer() {
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-8">
           <div className="col-span-2 lg:col-span-1">
             <Link href="/" className="flex items-center gap-2 mb-4" aria-label="ShinyBella - Inicio">
-              <div className="w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center">
-                <MapPinIcon className="w-6 h-6" aria-hidden="true" />
-              </div>
+              <img
+                src="/logo.svg"
+                alt="ShinyBella"
+                className="w-10 h-10 text-white"
+              />
               <span className="font-bold text-xl">ShinyBella</span>
             </Link>
             <p className="text-warm-steel/80 text-sm mb-6 max-w-xs">
