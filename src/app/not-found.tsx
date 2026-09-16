@@ -74,7 +74,7 @@ export default function NotFound() {
         </h1>
 
         <p className="mt-8 text-center text-warm-steel/80 text-lg max-w-md">
-          Ups... esta página se ha perdido en el mapa 🗺️
+          Ups... esta página se ha perdido en el mapa
         </p>
 
         <div className="mt-10 flex flex-col sm:flex-row gap-4 items-center justify-center">

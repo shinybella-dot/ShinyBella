@@ -2,8 +2,9 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { MapPin, User, Calendar, LogIn, LogOut, Menu, X } from 'lucide-react';
-import { useState } from 'react';
+import { createClient } from '@/lib/supabaseClient';
+import { MapPin, User, Calendar, LogIn, LogOut, Menu, X, ChevronDown, Image, Settings } from 'lucide-react';
+import { useState, useEffect } from 'react';
 
 const navLinks = [
   { href: '/', label: 'Inicio' },
@@ -13,8 +14,70 @@ const navLinks = [
 
 export default function Header() {
   const pathname = usePathname();
+  const supabase = createClient();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [user, setUser] = useState<{ email: string; user_metadata: { avatar_url?: string; full_name?: string } } | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const getUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setUser({
+          email: user.email ?? '',
+          user_metadata: user.user_metadata ?? {}
+        });
+      } else {
+        setUser(null);
+      }
+      setLoading(false);
+    };
+    getUser();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        setUser({
+          email: session.user.email ?? '',
+          user_metadata: session.user.user_metadata ?? {}
+        });
+      } else {
+        setUser(null);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [supabase]);
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
+    setUserMenuOpen(false);
+  };
+
+  const getInitials = (name?: string, email?: string) => {
+    if (name) return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+    if (email) return email.slice(0, 2).toUpperCase();
+    return 'US';
+  };
+
+  const avatarUrl = user?.user_metadata?.avatar_url;
+  const displayName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Usuario';
+
+  if (loading) {
+    return (
+      <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-sm border-b border-warm-steel/20">
+        <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex h-16 items-center justify-between">
+            <Link href="/" className="flex items-center gap-2" aria-label="ShinyBella - Inicio">
+              <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
+                <MapPin className="w-5 h-5 text-white" aria-hidden="true" />
+              </div>
+            </Link>
+          </div>
+        </nav>
+      </header>
+    );
+  }
 
   return (
     <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-sm border-b border-warm-steel/20">
@@ -46,19 +109,75 @@ export default function Header() {
           </div>
 
           <div className="hidden md:flex md:items-center md:gap-4">
-            <Link
-              href="/auth/login"
-              className="text-sm font-medium text-concrete/70 hover:text-accent transition-colors"
-            >
-              <LogIn className="w-4 h-4 mr-1 inline-block" aria-hidden="true" />
-              Iniciar sesión
-            </Link>
-            <Link
-              href="/auth/registro"
-              className="px-4 py-2 text-sm font-medium text-white bg-primary rounded-lg hover:bg-concrete transition-colors"
-            >
-              Registrarse
-            </Link>
+            {user ? (
+              <div className="relative">
+                <button
+                  onClick={() => setUserMenuOpen(!userMenuOpen)}
+                  className="flex items-center gap-2 p-1 rounded-lg hover:bg-surface transition-colors"
+                  aria-expanded={userMenuOpen}
+                  aria-haspopup="true"
+                >
+                  {avatarUrl ? (
+                    <img src={avatarUrl} alt="" className="w-8 h-8 rounded-full object-cover" />
+                  ) : (
+                    <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-white font-medium text-sm">
+                      {getInitials(user.user_metadata?.full_name, user.email)}
+                    </div>
+                  )}
+                  <span className="hidden sm:block text-sm font-medium text-concrete">{displayName}</span>
+                  <ChevronDown className="w-4 h-4 text-warm-steel/50" aria-hidden="true" />
+                </button>
+
+                {userMenuOpen && (
+                  <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-lg border border-warm-steel/20 py-2 z-50 animate-slide-down">
+                    <div className="px-4 py-3 border-b border-warm-steel/20">
+                      <p className="font-medium text-concrete text-sm">{displayName}</p>
+                      <p className="text-warm-steel/60 text-xs truncate">{user.email}</p>
+                    </div>
+                    <Link
+                      href="/mis-citas"
+                      className="flex items-center gap-3 px-4 py-2 text-sm text-concrete hover:bg-surface transition-colors"
+                      onClick={() => setUserMenuOpen(false)}
+                    >
+                      <Calendar className="w-4 h-4" aria-hidden="true" />
+                      Mis citas
+                    </Link>
+                    <Link
+                      href="/perfil"
+                      className="flex items-center gap-3 px-4 py-2 text-sm text-concrete hover:bg-surface transition-colors"
+                      onClick={() => setUserMenuOpen(false)}
+                    >
+                      <Settings className="w-4 h-4" aria-hidden="true" />
+                      Mi perfil
+                    </Link>
+                    <hr className="my-2 border-warm-steel/20" />
+                    <button
+                      onClick={handleSignOut}
+                      className="flex items-center gap-3 w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                    >
+                      <LogOut className="w-4 h-4" aria-hidden="true" />
+                      Cerrar sesión
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <>
+                <Link
+                  href="/auth/login"
+                  className="text-sm font-medium text-concrete/70 hover:text-accent transition-colors"
+                >
+                  <LogIn className="w-4 h-4 mr-1 inline-block" aria-hidden="true" />
+                  Iniciar sesión
+                </Link>
+                <Link
+                  href="/auth/registro"
+                  className="px-4 py-2 text-sm font-medium text-white bg-primary rounded-lg hover:bg-concrete transition-colors"
+                >
+                  Registrarse
+                </Link>
+              </>
+            )}
           </div>
 
           <button
@@ -88,21 +207,51 @@ export default function Header() {
                 </Link>
               ))}
               <hr className="border-warm-steel/20" />
-              <Link
-                href="/auth/login"
-                className="text-base font-medium text-concrete/70 hover:text-accent"
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                <LogIn className="w-5 h-5 mr-2 inline-block align-middle" aria-hidden="true" />
-                Iniciar sesión
-              </Link>
-              <Link
-                href="/auth/registro"
-                className="text-center px-4 py-2 text-base font-medium text-white bg-primary rounded-lg hover:bg-concrete transition-colors"
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                Registrarse
-              </Link>
+              {user ? (
+                <>
+                  <Link
+                    href="/mis-citas"
+                    className="flex items-center gap-2 px-4 py-2 text-base font-medium text-concrete"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    <Calendar className="w-5 h-5" aria-hidden="true" />
+                    Mis citas
+                  </Link>
+                  <Link
+                    href="/perfil"
+                    className="flex items-center gap-2 px-4 py-2 text-base font-medium text-concrete"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    <Settings className="w-5 h-5" aria-hidden="true" />
+                    Mi perfil
+                  </Link>
+                  <button
+                    onClick={handleSignOut}
+                    className="flex items-center gap-2 px-4 py-2 text-base font-medium text-red-600 text-left"
+                  >
+                    <LogOut className="w-5 h-5" aria-hidden="true" />
+                    Cerrar sesión
+                  </button>
+                </>
+              ) : (
+                <>
+                  <Link
+                    href="/auth/login"
+                    className="text-base font-medium text-concrete/70 hover:text-accent"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    <LogIn className="w-5 h-5 mr-2 inline-block align-middle" aria-hidden="true" />
+                    Iniciar sesión
+                  </Link>
+                  <Link
+                    href="/auth/registro"
+                    className="text-center px-4 py-2 text-base font-medium text-white bg-primary rounded-lg hover:bg-concrete transition-colors"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    Registrarse
+                  </Link>
+                </>
+              )}
             </div>
           </div>
         )}

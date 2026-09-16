@@ -289,7 +289,7 @@ export default function HomePage() {
       <section className="py-16 lg:py-24 bg-white">
         <div className="max-w-7xl mx-auto">
           <div className="grid lg:grid-cols-2 gap-12 items-center">
-            <div>
+            <div className="lg:pr-4">
               <span className="inline-block px-3 py-1 bg-primary/10 text-primary text-sm font-medium rounded-full mb-4">
                 Para salones y estilistas
               </span>
@@ -350,7 +350,7 @@ export default function HomePage() {
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link
               href="/"
-              className="w-full sm:w-auto px-8 py-4 bg-white text-concrete font-semibold rounded-xl hover:bg-surface-light transition-colors text-center"
+              className="w-full sm:w-auto px-8 py-4 bg-rosewood text-white font-semibold rounded-xl hover:bg-rosewood/90 transition-colors text-center shadow-lg"
             >
               Buscar salones ahora
             </Link>

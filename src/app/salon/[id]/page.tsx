@@ -74,7 +74,7 @@ export default function SalonPage() {
         precio: selectedServicio.precio,
       };
       localStorage.setItem('shinybella_pending_reserva', JSON.stringify(reservaData));
-      router.push('/auth/login?redirect=checkout');
+      router.push('/checkout');
     }
   };
 
