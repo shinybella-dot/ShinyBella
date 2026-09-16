@@ -4,44 +4,48 @@ import { useEffect, useRef } from 'react';
 import Link from 'next/link';
 
 export default function EmailVerificationSuccess() {
+  const playerRef = useRef<HTMLDivElement>(null);
+  const timeoutRef = useRef<number | null>(null);
+
   useEffect(() => {
-    // Inicializar animación Mario después de render
-    const script = document.createElement('script');
-    script.innerHTML = `
-      var player = document.getElementById('player');
-      
-      // ajustar skybox altura a múltiplo de 32
-      document.addEventListener("DOMContentLoaded", function() {
-        var h = document.getElementById('skybox').offsetHeight;
-        var s_h = Math.round(h/32) * 32;
-        document.getElementById('skybox').style.height = \`\${s_h}px\`;
-      });
-      
-      function walkLeft() {
-        player.className = "walk-left";
-        setTimeout(searchLeft, 1000);
-      }
-      function searchLeft() {
-        player.className = "search-left";
-        setTimeout(walkRight, 3000);
-      }
-      function walkRight() {
-        player.className = "walk-right";
-        setTimeout(searchRight, 3000);
-      }
-      function searchRight() {
-        player.className = "search-right";
-        setTimeout(walkLeft, 3000);
-      }
-      
-      walkLeft();
-    `;
-    document.body.appendChild(script);
-    
-    return () => {
-      document.body.removeChild(script);
-    };
+    playerRef.current = document.getElementById('player') as HTMLDivElement;
   }, []);
+
+  useEffect(() => {
+    if (!playerRef.current) return;
+
+    const walkSpeed = 0.2;
+
+    const walkLeft = () => {
+      playerRef.current!.className = 'walk-left';
+      timeoutRef.current = window.setTimeout(searchLeft, 1000);
+    };
+
+    const searchLeft = () => {
+      playerRef.current!.className = 'search-left';
+      timeoutRef.current = window.setTimeout(walkRight, 3000);
+    };
+
+    const walkRight = () => {
+      playerRef.current!.className = 'walk-right';
+      timeoutRef.current = window.setTimeout(searchRight, 1000);
+    };
+
+    const searchRight = () => {
+      playerRef.current!.className = 'search-right';
+      timeoutRef.current = window.setTimeout(walkLeft, 3000);
+    };
+
+    // Empezar ciclo
+    walkLeft();
+
+    // Limpiar al desmontar componente
+    return () => {
+      if (timeoutRef.current) {
+        window.clearTimeout(timeoutRef.current);
+      }
+    };
+  }, []); // Dependency vacía - solo se ejecuta una vez cuándo playerRef está listo
 
   return (
     <div className="min-h-screen bg-concrete flex items-center justify-center px-4 py-12">
@@ -52,7 +56,7 @@ export default function EmailVerificationSuccess() {
             <br/>
             <span>Cuenta verificada correctamente</span>
           </div>
-          <div id="player" className="idle"></div>
+          <div id="player" ref={playerRef} className="idle"></div>
           <div className="ground"></div>
         </div>
 
