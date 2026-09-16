@@ -59,14 +59,16 @@ export default function HomePage() {
     <div className="flex flex-col min-h-screen">
       <Header />
 
-      <main className="flex-1 flex flex-col lg:flex-row">
-        <aside
-          id="salones"
-          className={`lg:w-96 flex-shrink-0 border-r border-warm-steel/20 bg-white transition-transform duration-300 fixed inset-y-0 left-0 z-40 lg:relative lg:static transform ${
-            isMobileSidebarOpen ? 'translate-x-0' : '-translate-x-full'
-          }`}
-          aria-label="Lista de salones"
-        >
+      <main className="flex-1">
+        <div className="max-w-7xl mx-auto w-full">
+          <div className="flex flex-col lg:flex-row">
+            <aside
+              id="salones"
+              className={`lg:w-96 flex-shrink-0 border-r border-warm-steel/20 bg-white transition-transform duration-300 fixed inset-y-0 left-0 z-40 lg:relative lg:static transform ${
+                isMobileSidebarOpen ? 'translate-x-0' : '-translate-x-full'
+              }`}
+              aria-label="Lista de salones"
+            >
           <div className="flex flex-col h-full">
             <div className="p-4 border-b border-warm-steel/20 flex items-center justify-between lg:hidden">
               <h2 className="font-semibold text-concrete">Salones cercanos</h2>
@@ -299,8 +301,10 @@ export default function HomePage() {
               </div>
             </div>
           </section>
+          </div>
         </div>
-      </main>
+      </div>
+    </main>
 
       <Footer />
 
