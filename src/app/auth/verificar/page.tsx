@@ -4,6 +4,46 @@ import { useEffect, useRef } from 'react';
 import Link from 'next/link';
 
 export default function EmailVerificationSuccess() {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const intervalRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const resize = () => {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    };
+
+    resize();
+    window.addEventListener('resize', resize);
+
+    const flickering = () => {
+      if (!ctx) return;
+      const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const pix = imgData.data;
+
+      for (let i = 0; i < pix.length; i += 4) {
+        const color = (Math.random() * 30) + 200;
+        pix[i] = color;
+        pix[i + 1] = color;
+        pix[i + 2] = color;
+      }
+      ctx.putImageData(imgData, 0, 0);
+    };
+
+    intervalRef.current = window.setInterval(flickering, 50);
+
+    return () => {
+      window.removeEventListener('resize', resize);
+      if (intervalRef.current) window.clearInterval(intervalRef.current);
+    };
+  }, []);
+
   return (
     <div className="min-h-screen bg-concrete flex items-center justify-center px-4 py-12">
       <div className="relative w-full max-w-md space-y-8">
@@ -16,6 +56,12 @@ export default function EmailVerificationSuccess() {
           <div id="player" className="idle"></div>
           <div className="ground"></div>
         </div>
+
+        <canvas
+          ref={canvasRef}
+          className="absolute inset-0 pointer-events-none"
+          aria-hidden="true"
+        />
 
         <p className="text-center text-warm-steel/80 text-sm">
           Cuenta verificada correctamente
