@@ -7,12 +7,14 @@ import Link from 'next/link';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { ArrowLeft, CheckCircle, Lock, CreditCard, AlertCircle, Loader2 } from 'lucide-react';
+import { createClient } from '@/lib/supabaseClient';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import type { Servicio, Estilista } from '@/lib/types';
 import { mockSalones, mockServicios, mockEstilistas, getSalonById, getServicioById, getEstilistaById } from '@/lib/mockData';
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
+const supabase = createClient();
 
 interface ReservaData {
   salonId: string;
@@ -116,6 +118,20 @@ function CheckoutForm() {
       setError(stripeError.message || 'Error en el pago');
       setLoading(false);
     } else if (paymentIntent?.status === 'succeeded') {
+      // Guardar reserva en Supabase
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user && reserva) {
+        await supabase.from('reservas').insert({
+          user_id: user.id,
+          salon_id: reserva.salonId,
+          servicio_id: reserva.servicioId,
+          estilista_id: reserva.estilistaId,
+          fecha: reserva.fecha,
+          hora: reserva.hora,
+          estado: 'confirmada',
+          payment_intent_id: paymentIntent.id,
+        });
+      }
       setSuccess(true);
       localStorage.removeItem('shinybella_pending_reserva');
       setTimeout(() => router.push(`/confirmacion/${paymentIntent.id}`), 1500);
