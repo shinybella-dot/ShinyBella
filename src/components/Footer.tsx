@@ -54,11 +54,13 @@ export default function Footer() {
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-8">
           <div className="col-span-2 lg:col-span-1">
             <Link href="/" className="flex items-center gap-2 mb-4" aria-label="ShinyBella - Inicio">
-              <img
-                src="/logo.svg"
-                alt="ShinyBella"
-                className="w-10 h-10 text-white"
-              />
+              <div className="w-10 h-10 rounded-full overflow-hidden bg-white flex items-center justify-center">
+                <img
+                  src="/logo.svg"
+                  alt="ShinyBella"
+                  className="w-full h-full object-cover"
+                />
+              </div>
               <span className="font-bold text-xl">ShinyBella</span>
             </Link>
             <p className="text-warm-steel/80 text-sm mb-6 max-w-xs">

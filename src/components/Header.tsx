@@ -69,11 +69,13 @@ if (loading) {
         <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex h-16 items-center justify-between">
             <Link href="/" className="flex items-center gap-2" aria-label="ShinyBella - Inicio">
-              <img
-                src="/logo.svg"
-                alt="ShinyBella"
-                className="w-10 h-10"
-              />
+              <div className="w-12 h-12 rounded-full overflow-hidden bg-primary flex items-center justify-center">
+                <img
+                  src="/logo.svg"
+                  alt="ShinyBella"
+                  className="w-full h-full object-cover"
+                />
+              </div>
               <span className="font-bold text-xl text-primary hidden sm:block">ShinyBella</span>
             </Link>
           </div>
@@ -88,11 +90,13 @@ if (loading) {
         <div className="flex h-16 items-center justify-between">
           <div className="flex items-center gap-2">
             <Link href="/" className="flex items-center gap-2" aria-label="ShinyBella - Inicio">
-              <img
-                src="/logo.svg"
-                alt="ShinyBella"
-                className="w-10 h-10"
-              />
+              <div className="w-12 h-12 rounded-full overflow-hidden bg-primary flex items-center justify-center">
+                <img
+                  src="/logo.svg"
+                  alt="ShinyBella"
+                  className="w-full h-full object-cover"
+                />
+              </div>
               <span className="font-bold text-xl text-primary hidden sm:block">ShinyBella</span>
             </Link>
           </div>
