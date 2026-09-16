@@ -4,6 +4,45 @@ import { useEffect, useRef } from 'react';
 import Link from 'next/link';
 
 export default function EmailVerificationSuccess() {
+  useEffect(() => {
+    // Inicializar animación Mario después de render
+    const script = document.createElement('script');
+    script.innerHTML = `
+      var player = document.getElementById('player');
+      
+      // ajustar skybox altura a múltiplo de 32
+      document.addEventListener("DOMContentLoaded", function() {
+        var h = document.getElementById('skybox').offsetHeight;
+        var s_h = Math.round(h/32) * 32;
+        document.getElementById('skybox').style.height = \`\${s_h}px\`;
+      });
+      
+      function walkLeft() {
+        player.className = "walk-left";
+        setTimeout(searchLeft, 1000);
+      }
+      function searchLeft() {
+        player.className = "search-left";
+        setTimeout(walkRight, 3000);
+      }
+      function walkRight() {
+        player.className = "walk-right";
+        setTimeout(searchRight, 3000);
+      }
+      function searchRight() {
+        player.className = "search-right";
+        setTimeout(walkLeft, 3000);
+      }
+      
+      walkLeft();
+    `;
+    document.body.appendChild(script);
+    
+    return () => {
+      document.body.removeChild(script);
+    };
+  }, []);
+
   return (
     <div className="min-h-screen bg-concrete flex items-center justify-center px-4 py-12">
       <div className="relative w-full max-w-md space-y-8">
