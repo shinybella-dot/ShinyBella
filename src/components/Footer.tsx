@@ -20,9 +20,9 @@ const footerLinks = {
     { href: '#', label: 'Cookies' },
   ],
   redes: [
-    { href: '#', label: 'Facebook', icon: MessageSquare },
-    { href: '#', label: 'Instagram', icon: Camera },
-    { href: '#', label: 'TikTok', icon: Music },
+    { href: 'https://www.facebook.com', label: 'Facebook', icon: MessageSquare },
+    { href: 'https://www.instagram.com', label: 'Instagram', icon: Camera },
+    { href: 'https://www.tiktok.com', label: 'TikTok', icon: Music },
   ],
 };
 
