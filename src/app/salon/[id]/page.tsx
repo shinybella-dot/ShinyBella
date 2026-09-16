@@ -4,12 +4,15 @@ import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { MapPin, Phone, Star, Clock, ArrowLeft, Calendar, User, CheckCircle, ChevronRight, AlertCircle } from 'lucide-react';
+import { createClient } from '@/lib/supabaseClient';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import ServiceCard from '@/components/ServiceCard';
 import TimeSlotPicker from '@/components/TimeSlotPicker';
 import { mockSalones, mockServicios, mockEstilistas, getSalonById, getServiciosBySalon, getEstilistasBySalon } from '@/lib/mockData';
 import type { Salon, Servicio, Estilista } from '@/lib/types';
+
+const supabase = createClient();
 
 export default function SalonPage() {
   const params = useParams();
@@ -25,6 +28,7 @@ export default function SalonPage() {
   const [selectedHora, setSelectedHora] = useState<string | null>(null);
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(true);
+  const [bookedSlots, setBookedSlots] = useState<Record<string, string[]>>({});
 
   useEffect(() => {
     const s = getSalonById(salonId);
@@ -41,6 +45,33 @@ export default function SalonPage() {
     setLoading(false);
   }, [salonId, router]);
 
+  // Cargar horarios ocupados cuando se selecciona servicio y fecha
+  useEffect(() => {
+    if (!selectedServicio || !selectedFecha || !salonId) return;
+
+    const fetchBookedSlots = async () => {
+      const fechaStr = selectedFecha.toISOString().split('T')[0];
+      
+      const { data: reservas } = await supabase
+        .from('reservas')
+        .select('estilista_id, hora')
+        .eq('salon_id', salonId)
+        .eq('fecha', fechaStr)
+        .in('estado', ['pendiente', 'confirmada']);
+
+      if (reservas) {
+        const booked: Record<string, string[]> = {};
+        reservas.forEach((r: { estilista_id: string; hora: string }) => {
+          if (!booked[r.estilista_id]) booked[r.estilista_id] = [];
+          booked[r.estilista_id].push(r.hora.slice(0, 5)); // HH:MM
+        });
+        setBookedSlots(booked);
+      }
+    };
+
+    fetchBookedSlots();
+  }, [selectedServicio, selectedFecha, salonId]);
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-surface-light">
@@ -53,6 +84,9 @@ export default function SalonPage() {
 
   const handleSelectServicio = (servicio: Servicio) => {
     setSelectedServicio(servicio);
+    setSelectedFecha(null);
+    setSelectedHora(null);
+    setSelectedEstilistaId(null);
     setStep(2);
   };
 
@@ -168,6 +202,7 @@ export default function SalonPage() {
                     selectedEstilistaId={selectedEstilistaId}
                     selectedFecha={selectedFecha}
                     selectedHora={selectedHora}
+                    bookedSlots={bookedSlots}
                   />
                 </section>
               )}

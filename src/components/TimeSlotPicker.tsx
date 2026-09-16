@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { Calendar, User, ChevronLeft, ChevronRight, Clock } from 'lucide-react';
+import { Calendar, User, ChevronLeft, ChevronRight, Clock, Lock } from 'lucide-react';
 import { format, addDays, startOfWeek, endOfWeek, isSameDay, parseISO, isBefore, startOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Estilista } from '@/lib/types';
@@ -13,6 +13,7 @@ interface TimeSlotPickerProps {
   selectedFecha: Date | null;
   selectedHora: string | null;
   minDate?: Date;
+  bookedSlots?: Record<string, string[]>; // estilista_id -> array de horas "HH:MM"
 }
 
 const HORARIOS = [
@@ -29,6 +30,7 @@ export default function TimeSlotPicker({
   selectedFecha,
   selectedHora,
   minDate = new Date(),
+  bookedSlots = {},
 }: TimeSlotPickerProps) {
   const [currentWeekStart, setCurrentWeekStart] = useState(() => startOfWeek(minDate, { weekStartsOn: 1 }));
   const [expandedEstilista, setExpandedEstilista] = useState<string | null>(null);
@@ -54,6 +56,10 @@ export default function TimeSlotPicker({
   const handleTimeClick = (estilistaId: string, date: Date, hora: string) => {
     if (isPastDate(date)) return;
     onSelect(estilistaId, date, hora);
+  };
+
+  const isSlotBooked = (estilistaId: string, hora: string) => {
+    return bookedSlots[estilistaId]?.includes(hora) ?? false;
   };
 
   return (
@@ -136,24 +142,28 @@ export default function TimeSlotPicker({
                                           isSameDay(selectedFecha, day) &&
                                           selectedHora === hora;
                         const isPast = isPastDate(day) || (isSameDay(day, new Date()) && isBefore(new Date(), parseISO(`${format(day, 'yyyy-MM-dd')}T${hora}`)));
+                        const isBooked = isSlotBooked(estilista.id, hora);
 
                         return (
                           <button
                             key={hora}
-                            onClick={() => !isPast && handleTimeClick(estilista.id, day, hora)}
-                            disabled={isPast}
-                            className={`w-full h-8 px-2 py-1 text-xs rounded-lg transition-all ${
+                            onClick={() => !isPast && !isBooked && handleTimeClick(estilista.id, day, hora)}
+                            disabled={isPast || isBooked}
+                            className={`w-full h-8 px-2 py-1 text-xs rounded-lg transition-all flex items-center justify-center gap-1 ${
                               isSelected
                                 ? 'bg-accent text-white font-medium shadow-sm'
                                 : isPast
                                 ? 'bg-warm-steel/10 text-warm-steel/30 cursor-not-allowed line-through'
+                                : isBooked
+                                ? 'bg-red-50 text-red-500 border border-red-200 cursor-not-allowed'
                                 : 'bg-white border border-warm-steel/20 text-concrete hover:bg-surface hover:border-accent/50'
                             }`}
                             aria-pressed={isSelected ? 'true' : 'false'}
-                            aria-disabled={isPast}
-                            aria-label={`${format(day, 'EEEE d MMMM', { locale: es })} a las ${hora} con ${estilista.nombre}`}
+                            aria-disabled={isPast || isBooked}
+                            aria-label={`${isBooked ? 'Ocupado - ' : ''}${format(day, 'EEEE d MMMM', { locale: es })} a las ${hora} con ${estilista.nombre}`}
                           >
                             {hora}
+                            {isBooked && <Lock className="w-3 h-3" aria-hidden="true" />}
                           </button>
                         );
                       })}
