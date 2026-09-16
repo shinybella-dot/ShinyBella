@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { MapPin, Phone, Mail, MessageSquare, Camera, Music, MapPin as MapPinIcon } from 'lucide-react';
+import { MapPin, Phone, Mail, Camera, MapPin as MapPinIcon, MessageSquare, Music } from 'lucide-react';
 
 const footerLinks = {
   empresa: [
@@ -20,16 +20,31 @@ const footerLinks = {
     { href: '#', label: 'Cookies' },
   ],
   redes: [
-    { href: 'https://www.facebook.com', label: 'Facebook', icon: MessageSquare },
-    { href: 'https://www.instagram.com', label: 'Instagram', icon: Camera },
-    { href: 'https://www.tiktok.com', label: 'TikTok', icon: Music },
+    { 
+      href: 'https://www.facebook.com', 
+      label: 'Facebook', 
+      icon: MessageSquare, 
+      disabled: true 
+    },
+    { 
+      href: 'https://www.instagram.com/shiny_bella_', 
+      label: 'Instagram', 
+      icon: Camera, 
+      disabled: false 
+    },
+    { 
+      href: 'https://www.tiktok.com', 
+      label: 'TikTok', 
+      icon: Music, 
+      disabled: true 
+    },
   ],
 };
 
 const contactInfo = {
   direccion: 'Santa Ana Centro, El Salvador',
   telefono: '+503 2200-0000',
-  email: 'hola@shinybella.com',
+  email: 'ShinyBellaApp@gmail.com',
 };
 
 export default function Footer() {
@@ -49,16 +64,28 @@ export default function Footer() {
             </p>
             <div className="flex gap-4">
               {footerLinks.redes.map((social) => (
-                <a
-                  key={social.label}
-                  href={social.href}
-                  className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors"
-                  aria-label={social.label}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <social.icon className="w-5 h-5" aria-hidden="true" />
-                </a>
+                social.disabled ? (
+                  <button
+                    key={social.label}
+                    disabled
+                    className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center cursor-not-allowed opacity-40"
+                    aria-label={`${social.label} (próximamente)`}
+                    aria-disabled="true"
+                  >
+                    <social.icon className="w-5 h-5" aria-hidden="true" />
+                  </button>
+                ) : (
+                  <a
+                    key={social.label}
+                    href={social.href}
+                    className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors"
+                    aria-label={social.label}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <social.icon className="w-5 h-5" aria-hidden="true" />
+                  </a>
+                )
               ))}
             </div>
           </div>
