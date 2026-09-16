@@ -9,16 +9,16 @@ export default function EmailVerificationSuccess() {
       <div className="relative w-full max-w-md space-y-8">
         <div id="skybox" className="skybox">
           <div className="txt">
-            <p>Game over</p>
+            <p>Succesfully</p>
             <br/>
-            <span>404 FILE NOT FOUND</span>
+            <span>Cuenta verificada correctamente</span>
           </div>
           <div id="player" className="idle"></div>
           <div className="ground"></div>
         </div>
 
         <p className="text-center text-warm-steel/80 text-sm">
-          Hemos verificado tu cuenta exitosamente
+          Cuenta verificada correctamente
         </p>
 
         <div className="flex flex-col sm:flex-row gap-4 items-center justify-center">
