@@ -19,13 +19,22 @@ export default function MisCitasPage() {
   useEffect(() => {
     const fetchReservas = async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user) {
+        setLoading(false);
+        return;
+      }
 
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('reservas')
         .select('*, salon: salones(*), servicio: servicios(*), estilista: estilistas(*)')
         .eq('user_id', user.id)
         .order('fecha', { ascending: true });
+
+      if (error) {
+        console.error('Error fetching reservas:', error);
+        setLoading(false);
+        return;
+      }
 
       if (data) setReservas(data as Reserva[]);
       setLoading(false);
@@ -33,8 +42,10 @@ export default function MisCitasPage() {
 
     fetchReservas();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
-      fetchReservas();
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        fetchReservas();
+      }
     });
 
     return () => subscription.unsubscribe();
