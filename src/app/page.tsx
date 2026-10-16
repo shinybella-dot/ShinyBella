@@ -221,12 +221,24 @@ export default function HomePage() {
           className="h-full w-full"
         />
       </Suspense>
+
+      {selectedSalon && (
+        <div className="absolute bottom-6 right-4 left-4 z-20 animate-slide-up">
+          <Link
+            href={`/salon/${selectedSalon.id}`}
+            className="w-full bg-primary text-white px-6 py-3 rounded-xl font-medium shadow-lg hover:bg-concrete transition-colors flex items-center justify-center gap-2"
+          >
+            Ver detalles y reservar
+            <ArrowRight className="w-5 h-5" aria-hidden="true" />
+          </Link>
+        </div>
+      )}
     </section>
   );
 
   // ====== CONTENIDO COMÚN (debajo del mapa) ======
   const CommonContent = () => (
-    <div className="max-w-7xl mx-auto px-4 w-full">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
       <section id="como-funciona" className="py-16 lg:py-24 bg-white">
         <div className="text-center mb-16">
           <span className="inline-block px-3 py-1 bg-accent/10 text-accent text-sm font-medium rounded-full mb-4">
@@ -240,29 +252,26 @@ export default function HomePage() {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {steps.map((step, index) => (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 max-w-6xl mx-auto">
+          {steps.map((step) => (
             <div
               key={step.number}
-              className="relative p-6 bg-white rounded-2xl border border-warm-steel/20 hover:border-accent/50 hover:shadow-lg transition-all duration-300"
+              className="relative p-6 pt-8 bg-white rounded-2xl border border-warm-steel/20 hover:border-accent/50 hover:shadow-lg transition-all duration-300 text-center"
             >
-              <div className="absolute -top-3 left-6 w-10 h-10 bg-primary text-white rounded-full flex items-center justify-center font-bold text-lg">
+              <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 bg-primary text-white rounded-full flex items-center justify-center font-bold text-lg shadow-md">
                 {step.number}
               </div>
-              <div className="pt-6">
+              <div>
                 <h3 className="font-semibold text-concrete text-lg mb-2">{step.title}</h3>
                 <p className="text-warm-steel/60 text-sm">{step.description}</p>
               </div>
-              {index < steps.length - 1 && (
-                <div className="hidden lg:block absolute top-0 right-0 w-1/2 h-1/2 border-t-2 border-r-2 border-warm-steel/20" aria-hidden="true" />
-              )}
             </div>
           ))}
         </div>
       </section>
 
       <section className="py-16 lg:py-24 bg-surface-light">
-        <div className="max-w-7xl mx-auto">
+        <div className="max-w-6xl mx-auto">
           <div className="text-center mb-16">
             <span className="inline-block px-3 py-1 bg-primary/10 text-primary text-sm font-medium rounded-full mb-4">
               Por qué elegir ShinyBella
@@ -272,7 +281,7 @@ export default function HomePage() {
             </h2>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {features.map((feature) => (
               <article key={feature.title} className="p-6 bg-white rounded-2xl border border-warm-steel/20 hover:border-accent/50 hover:shadow-lg transition-all duration-300">
                 <div className="w-12 h-12 bg-accent/10 rounded-xl flex items-center justify-center mb-4">
@@ -287,9 +296,9 @@ export default function HomePage() {
       </section>
 
       <section className="py-16 lg:py-24 bg-white">
-        <div className="max-w-7xl mx-auto">
+        <div className="max-w-6xl mx-auto">
           <div className="grid lg:grid-cols-2 gap-12 items-center">
-            <div className="lg:pr-4">
+            <div className="lg:pr-4 text-center lg:text-left">
               <span className="inline-block px-3 py-1 bg-primary/10 text-primary text-sm font-medium rounded-full mb-4">
                 Para salones y estilistas
               </span>
@@ -299,7 +308,7 @@ export default function HomePage() {
               <p className="text-warm-steel/70 text-lg mb-8">
                 Únete a más de 30 salones en Santa Ana que ya gestionan sus citas, reducen ausencias y captan nuevos clientes con ShinyBella.
               </p>
-              <ul className="space-y-4 mb-8">
+              <ul className="space-y-4 mb-8 text-left">
                 {[
                   'Agenda digital sincronizada en tiempo real',
                   'Recordatorios automáticos a clientes (WhatsApp/Email)',
@@ -344,7 +353,7 @@ export default function HomePage() {
           <h2 className="text-3xl lg:text-4xl font-bold mb-4">
             ¿Listo para tu próxima cita?
           </h2>
-          <p className="text-warm-steel/30 text-lg mb-8 max-w-xl mx-auto">
+          <p className="text-white/75 text-lg mb-8 max-w-xl mx-auto">
             Únete a cientos de usuarios que ya agendan sin estrés. Encuentra tu salón ideal, elige tu horario y paga en segundos.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
@@ -356,7 +365,7 @@ export default function HomePage() {
             </Link>
             <Link
               href="/auth/registro"
-              className="w-full sm:w-auto px-8 py-4 border-2 border-white/30 text-white font-semibold rounded-xl hover:bg-white/10 transition-colors text-center"
+              className="w-full sm:w-auto px-8 py-4 border-2 border-white/40 text-white font-semibold rounded-xl hover:bg-white/10 transition-colors text-center"
             >
               Crear cuenta gratis
             </Link>

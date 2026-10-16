@@ -13,11 +13,16 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --color-primary: var(--color-concrete);
-  --color-secondary: var(--color-warm-steel);
-  --color-accent: var(--color-rosewood);
-  --color-surface: var(--color-peaches-cream);
-  --color-surface-light: var(--color-dawn);
+  --color-concrete: #525871;
+  --color-warm-steel: #857C91;
+  --color-rosewood: #CD9FA0;
+  --color-dawn: #F8CCAA;
+  --color-peaches-cream: #F2C1A3;
+  --color-primary: #525871;
+  --color-secondary: #857C91;
+  --color-accent: #CD9FA0;
+  --color-surface: #F2C1A3;
+  --color-surface-light: #F8CCAA;
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }

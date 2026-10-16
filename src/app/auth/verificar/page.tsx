@@ -1,67 +1,20 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
 import Link from 'next/link';
 
 export default function EmailVerificationSuccess() {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const intervalRef = useRef<number | null>(null);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    const resize = () => {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
-    };
-
-    resize();
-    window.addEventListener('resize', resize);
-
-    const flickering = () => {
-      if (!ctx) return;
-      const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      const pix = imgData.data;
-
-      for (let i = 0; i < pix.length; i += 4) {
-        const color = (Math.random() * 30) + 200;
-        pix[i] = color;
-        pix[i + 1] = color;
-        pix[i + 2] = color;
-      }
-      ctx.putImageData(imgData, 0, 0);
-    };
-
-    intervalRef.current = window.setInterval(flickering, 50);
-
-    return () => {
-      window.removeEventListener('resize', resize);
-      if (intervalRef.current) window.clearInterval(intervalRef.current);
-    };
-  }, []);
-
   return (
     <div className="min-h-screen bg-concrete flex items-center justify-center px-4 py-12">
       <div className="relative w-full max-w-md space-y-8">
         <div id="skybox" className="skybox">
           <div className="txt">
             <p>Succesfully</p>
-            <br/>
+            <br />
             <span>Cuenta verificada correctamente</span>
           </div>
           <div id="player" className="idle"></div>
           <div className="ground"></div>
         </div>
-
-        <canvas
-          ref={canvasRef}
-          className="absolute inset-0 pointer-events-none"
-          aria-hidden="true"
-        />
 
         <p className="text-center text-warm-steel/80 text-sm">
           Cuenta verificada correctamente
@@ -92,6 +45,77 @@ export default function EmailVerificationSuccess() {
           </Link>
         </div>
       </div>
+
+      <style jsx>{`
+        .skybox {
+          position: relative;
+          width: 100%;
+          height: 200px;
+          background: linear-gradient(180deg, #F8CCAA 0%, #F2C1A3 50%, #CD9FA0 100%);
+          border-radius: 16px;
+          overflow: hidden;
+        }
+
+        .txt {
+          position: absolute;
+          top: 20px;
+          left: 20px;
+          color: #525871;
+          font-family: 'Arial', sans-serif;
+        }
+
+        .txt p {
+          font-size: 2rem;
+          font-weight: 800;
+          letter-spacing: 0.1em;
+          animation: bounce-in 0.8s ease-out;
+        }
+
+        .txt span {
+          display: block;
+          margin-top: 8px;
+          font-size: 1rem;
+          font-weight: 500;
+          animation: fade-in-up 0.6s ease-out 0.3s both;
+        }
+
+        #player {
+          position: absolute;
+          bottom: 40px;
+          left: 50%;
+          transform: translateX(-50%);
+          width: 60px;
+          height: 60px;
+          background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='28' fill='%23F2C1A3'/%3E%3Ccircle cx='24' cy='26' r='3' fill='%23525871'/%3E%3Ccircle cx='40' cy='26' r='3' fill='%23525871'/%3E%3Cellipse cx='32' cy='38' rx='8' ry='4' fill='%23857C91'/%3E%3C/svg%3E") no-repeat center/contain;
+          animation: mario-bounce 1.5s ease-in-out infinite;
+        }
+
+        .ground {
+          position: absolute;
+          bottom: 0;
+          left: 0;
+          width: 100%;
+          height: 40px;
+          background: linear-gradient(180deg, #CD9FA0 0%, #857C91 100%);
+        }
+
+        @keyframes bounce-in {
+          0% { transform: scale(0.3); opacity: 0; }
+          50% { transform: scale(1.1); }
+          70% { transform: scale(0.95); }
+          100% { transform: scale(1); opacity: 1; }
+        }
+
+        @keyframes fade-in-up {
+          0% { transform: translateY(20px); opacity: 0; }
+          100% { transform: translateY(0); opacity: 1; }
+        }
+
+        @keyframes mario-bounce {
+          0%, 100% { transform: translateX(-50%) translateY(0); }
+          50% { transform: translateX(-50%) translateY(-15px); }
+        }
+      `}</style>
     </div>
   );
 }

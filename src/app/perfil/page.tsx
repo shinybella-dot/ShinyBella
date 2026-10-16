@@ -64,16 +64,35 @@ export default function PerfilPage() {
     return () => subscription.unsubscribe();
   }, [supabase]);
 
-  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Validar MIME type real (magic bytes) para prevenir spoofing
+  const validateImageFile = (file: File): Promise<boolean> => {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const arr = new Uint8Array(e.target?.result as ArrayBuffer);
+        // Verificar magic bytes para formatos comunes
+        const isJPEG = arr[0] === 0xFF && arr[1] === 0xD8 && arr[2] === 0xFF;
+        const isPNG = arr[0] === 0x89 && arr[1] === 0x50 && arr[2] === 0x4E && arr[3] === 0x47;
+        const isWEBP = arr[0] === 0x52 && arr[1] === 0x49 && arr[2] === 0x46 && arr[3] === 0x46;
+        const isGIF = arr[0] === 0x47 && arr[1] === 0x49 && arr[2] === 0x46;
+        resolve(isJPEG || isPNG || isWEBP || isGIF);
+      };
+      reader.readAsArrayBuffer(file.slice(0, 4));
+    });
+  };
+
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (!file.type.startsWith('image/')) {
-      setError('El archivo debe ser una imagen');
-      return;
-    }
     if (file.size > 2 * 1024 * 1024) {
       setError('La imagen no debe superar 2MB');
+      return;
+    }
+
+    const isValidImage = await validateImageFile(file);
+    if (!isValidImage) {
+      setError('El archivo no es una imagen válida (JPEG, PNG, WebP o GIF)');
       return;
     }
 

@@ -25,6 +25,11 @@ interface ReservaData {
   precio: number;
 }
 
+interface LoadingState {
+  stage: 'idle' | 'creating_payment' | 'processing_card' | 'confirming_3ds' | 'saving_reservation';
+  message: string;
+}
+
 function CheckoutForm() {
   const stripe = useStripe();
   const elements = useElements();
@@ -32,7 +37,7 @@ function CheckoutForm() {
   const searchParams = useSearchParams();
 
   const [reserva, setReserva] = useState<ReservaData | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loadingState, setLoadingState] = useState<LoadingState>({ stage: 'idle', message: '' });
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [clientSecret, setClientSecret] = useState<string | null>(null);
@@ -69,6 +74,7 @@ function CheckoutForm() {
   const createPaymentIntent = async () => {
     if (!reserva) return;
     try {
+      setLoadingState({ stage: 'creating_payment', message: 'Creando intención de pago...' });
       const response = await fetch('/api/create-payment-intent', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -87,11 +93,14 @@ function CheckoutForm() {
       const data = await response.json();
       if (data.clientSecret) {
         setClientSecret(data.clientSecret);
+        setLoadingState({ stage: 'idle', message: '' });
       } else {
         setError(data.error || 'Error al crear el pago');
+        setLoadingState({ stage: 'idle', message: '' });
       }
     } catch {
       setError('Error de conexión. Intenta de nuevo.');
+      setLoadingState({ stage: 'idle', message: '' });
     }
   };
 
@@ -99,42 +108,86 @@ function CheckoutForm() {
     e.preventDefault();
     if (!stripe || !elements || !clientSecret || !reserva) return;
 
-    setLoading(true);
+    setLoadingState({ stage: 'processing_card', message: 'Verificando tarjeta...' });
     setError(null);
 
     const cardElement = elements.getElement(CardElement);
     if (!cardElement) return;
 
+    // Obtener nombre del usuario autenticado para billing_details
+    const { data: { user } } = await supabase.auth.getUser();
+    const userName = user?.user_metadata?.full_name || user?.email || 'Cliente ShinyBella';
+
     const { error: stripeError, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
       payment_method: {
         card: cardElement,
         billing_details: {
-          name: 'Cliente ShinyBella',
+          name: userName,
         },
       },
     });
 
     if (stripeError) {
       setError(stripeError.message || 'Error en el pago');
-      setLoading(false);
-    } else if (paymentIntent?.status === 'succeeded') {
-      // Guardar reserva en Supabase
-      const { data: { user } } = await supabase.auth.getUser();
+      setLoadingState({ stage: 'idle', message: '' });
+      return;
+    }
+
+    // Manejar 3D Secure (requires_action) - confirmCardPayment ya lo maneja internamente
+    // pero verificamos el estado final
+    if (paymentIntent?.status === 'requires_action' || paymentIntent?.status === 'requires_capture') {
+      setLoadingState({ stage: 'confirming_3ds', message: 'Completando verificación 3D Secure...' });
+      // confirmCardPayment ya espera la acción del usuario, si llegamos aquí es porque se completó
+    }
+
+    if (paymentIntent?.status === 'succeeded' || paymentIntent?.status === 'requires_capture') {
+      setLoadingState({ stage: 'saving_reservation', message: 'Guardando tu reserva...' });
+      
       if (user && reserva) {
-        await supabase.from('reservas').insert({
-          user_id: user.id,
-          salon_id: reserva.salonId,
-          servicio_id: reserva.servicioId,
-          estilista_id: reserva.estilistaId,
-          fecha: reserva.fecha,
-          hora: reserva.hora,
-          estado: 'confirmada',
-          payment_intent_id: paymentIntent.id,
+        // Usar RPC atómica para evitar race conditions
+        const { error: rpcError } = await supabase.rpc('create_reserva_atomic', {
+          p_user_id: user.id,
+          p_salon_id: reserva.salonId,
+          p_servicio_id: reserva.servicioId,
+          p_estilista_id: reserva.estilistaId,
+          p_fecha: reserva.fecha,
+          p_hora: reserva.hora,
+          p_estado: 'confirmada',
+          p_payment_intent_id: paymentIntent.id,
         });
+
+        if (rpcError) {
+          // Fallback: inserción directa si RPC no existe
+          console.warn('RPC create_reserva_atomic no disponible, usando fallback:', rpcError);
+          const { error: insertError } = await supabase.from('reservas').insert({
+            user_id: user.id,
+            salon_id: reserva.salonId,
+            servicio_id: reserva.servicioId,
+            estilista_id: reserva.estilistaId,
+            fecha: reserva.fecha,
+            hora: reserva.hora,
+            estado: 'confirmada',
+            payment_intent_id: paymentIntent.id,
+          });
+          if (insertError) {
+            setError('Error al guardar la reserva: ' + insertError.message);
+            setLoadingState({ stage: 'idle', message: '' });
+            return;
+          }
+        }
       }
+
       setSuccess(true);
       localStorage.removeItem('shinybella_pending_reserva');
+      // Guardar en localStorage para la página de confirmación
+      localStorage.setItem('shinybella_last_reserva', JSON.stringify({
+        ...reserva,
+        paymentIntentId: paymentIntent.id,
+      }));
       setTimeout(() => router.push(`/confirmacion/${paymentIntent.id}`), 1500);
+    } else {
+      setError('El pago no se completó correctamente. Estado: ' + paymentIntent?.status);
+      setLoadingState({ stage: 'idle', message: '' });
     }
   };
 
@@ -158,6 +211,16 @@ function CheckoutForm() {
       </div>
     );
   }
+
+  const getLoadingMessage = () => {
+    switch (loadingState.stage) {
+      case 'creating_payment': return 'Creando pago seguro...';
+      case 'processing_card': return 'Verificando tarjeta...';
+      case 'confirming_3ds': return 'Completando verificación bancaria...';
+      case 'saving_reservation': return 'Guardando tu reserva...';
+      default: return 'Procesando...';
+    }
+  };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
@@ -218,13 +281,13 @@ function CheckoutForm() {
 
       <button
         type="submit"
-        disabled={loading || !stripe}
+        disabled={loadingState.stage !== 'idle' || !stripe}
         className="w-full py-4 bg-primary text-white font-semibold rounded-xl hover:bg-concrete transition-colors text-lg flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
       >
-        {loading ? (
+        {loadingState.stage !== 'idle' ? (
           <>
             <Loader2 className="w-5 h-5 animate-spin" aria-hidden="true" />
-            Procesando...
+            {getLoadingMessage()}
           </>
         ) : (
           <>

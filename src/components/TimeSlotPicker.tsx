@@ -45,12 +45,22 @@ export default function TimeSlotPicker({
 
   const isPastDate = (date: Date) => isBefore(startOfDay(date), startOfDay(minDate));
 
+  const isPastTime = (date: Date, hora: string) => {
+    if (!isSameDay(date, new Date())) return false;
+    const [hours, minutes] = hora.split(':').map(Number);
+    const now = new Date();
+    const slotTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes);
+    return isBefore(slotTime, now);
+  };
+
   const prevWeek = () => setCurrentWeekStart((prev) => addDays(prev, -7));
   const nextWeek = () => setCurrentWeekStart((prev) => addDays(prev, 7));
 
   const handleDayClick = (date: Date) => {
     if (isPastDate(date)) return;
-    onSelect(selectedEstilistaId || estilistas[0]?.id || '', date, selectedHora || '09:00');
+    const firstEstilistaId = estilistas[0]?.id;
+    if (!firstEstilistaId) return;
+    onSelect(firstEstilistaId, date, selectedHora || '09:00');
   };
 
   const handleTimeClick = (estilistaId: string, date: Date, hora: string) => {
@@ -141,7 +151,7 @@ export default function TimeSlotPicker({
                                           selectedFecha &&
                                           isSameDay(selectedFecha, day) &&
                                           selectedHora === hora;
-                        const isPast = isPastDate(day) || (isSameDay(day, new Date()) && isBefore(new Date(), parseISO(`${format(day, 'yyyy-MM-dd')}T${hora}`)));
+                        const isPast = isPastDate(day) || isPastTime(day, hora);
                         const isBooked = isSlotBooked(estilista.id, hora);
 
                         return (

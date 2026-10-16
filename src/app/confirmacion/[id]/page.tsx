@@ -60,10 +60,16 @@ export default function ConfirmacionPage() {
           <div className="text-center max-w-md">
             <CheckCircle className="w-16 h-16 text-accent mx-auto mb-4" aria-hidden="true" />
             <h1 className="text-2xl font-bold text-concrete mb-2">¡Pago confirmado!</h1>
-            <p className="text-warm-steel/70 mb-6">Tu reserva ha sido procesada exitosamente. Los detalles se han enviado a tu email.</p>
-            <Link href="/" className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-white font-semibold rounded-xl hover:bg-concrete transition-colors">
-              Volver al inicio <ArrowRight className="w-5 h-5" aria-hidden="true" />
-            </Link>
+            <p className="text-warm-steel/70 mb-6">Tu reserva ha sido procesada exitosamente.</p>
+            <p className="text-warm-steel/50 text-sm mb-6">No pudimos cargar los detalles de tu reserva en este momento, pero tu cita está guardada.</p>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <Link href="/mis-citas" className="px-6 py-3 bg-primary text-white font-semibold rounded-xl hover:bg-concrete transition-colors text-center">
+                Ver mis citas
+              </Link>
+              <Link href="/" className="px-6 py-3 border-2 border-warm-steel/30 text-concrete font-semibold rounded-xl hover:bg-surface-light transition-colors text-center">
+                Volver al inicio
+              </Link>
+            </div>
           </div>
         </main>
         <Footer />
@@ -83,7 +89,7 @@ export default function ConfirmacionPage() {
             </div>
             <h1 className="text-3xl font-bold text-concrete mb-2">¡Reserva confirmada!</h1>
             <p className="text-warm-steel/70 text-lg">Tu cita ha sido agendada y pagada exitosamente</p>
-            <p className="text-warm-steel/50 text-sm mt-2">ID de transacción: <code className="bg-surface-light px-2 py-1 rounded">{paymentIntentId.slice(0, 20)}...</code></p>
+            <p className="text-warm-steel/50 text-sm mt-2">ID de transacción: <code className="bg-surface-light px-2 py-1 rounded">{paymentIntentId}</code></p>
           </div>
 
           <div className="grid md:grid-cols-2 gap-6 mb-8">

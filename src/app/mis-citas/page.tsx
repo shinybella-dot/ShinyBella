@@ -51,7 +51,17 @@ export default function MisCitasPage() {
     return () => subscription.unsubscribe();
   }, [supabase]);
 
-  const handleCancel = async (reservaId: string) => {
+  const handleCancel = async (reservaId: string, fecha: string, hora: string) => {
+    // Validar política de cancelación 2h antes
+    const now = new Date();
+    const reservaDateTime = new Date(`${fecha}T${hora}`);
+    const diffHours = (reservaDateTime.getTime() - now.getTime()) / (1000 * 60 * 60);
+    
+    if (diffHours < 2) {
+      alert('No puedes cancelar con menos de 2 horas de antelación.');
+      return;
+    }
+    
     if (!confirm('¿Seguro que quieres cancelar esta cita?')) return;
 
     setCancellingId(reservaId);
@@ -90,8 +100,16 @@ export default function MisCitasPage() {
     }
   };
 
-  const upcoming = reservas.filter(r => r.estado !== 'cancelada' && r.estado !== 'completada');
-  const past = reservas.filter(r => r.estado === 'completada' || r.estado === 'cancelada');
+  const now = new Date();
+
+  const upcoming = reservas.filter(r => {
+    const reservaDateTime = new Date(`${r.fecha}T${r.hora}`);
+    return (r.estado === 'confirmada' || r.estado === 'pendiente') && reservaDateTime > now;
+  });
+  const past = reservas.filter(r => {
+    const reservaDateTime = new Date(`${r.fecha}T${r.hora}`);
+    return r.estado === 'completada' || r.estado === 'cancelada' || reservaDateTime <= now;
+  });
 
   if (loading) {
     return (
@@ -173,7 +191,7 @@ export default function MisCitasPage() {
                         <div className="flex gap-2">
                           {reserva.estado === 'confirmada' && (
                             <button
-                              onClick={() => handleCancel(reserva.id)}
+                              onClick={() => handleCancel(reserva.id, reserva.fecha, reserva.hora)}
                               disabled={cancellingId === reserva.id}
                               className="px-4 py-2 bg-red-50 text-red-600 font-medium rounded-lg hover:bg-red-100 transition-colors text-sm disabled:opacity-50 flex items-center gap-1"
                             >
@@ -243,6 +261,20 @@ export default function MisCitasPage() {
                 className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-white font-semibold rounded-xl hover:bg-concrete transition-colors"
               >
                 Buscar salón <ChevronRight className="w-5 h-5" aria-hidden="true" />
+              </Link>
+            </div>
+          )}
+
+          {reservas.length > 0 && upcoming.length === 0 && past.length === 0 && (
+            <div className="text-center py-16 animate-slide-up">
+              <Calendar className="w-16 h-16 text-warm-steel/20 mx-auto mb-4" aria-hidden="true" />
+              <h2 className="text-xl font-semibold text-concrete mb-2">Sin citas próximas</h2>
+              <p className="text-warm-steel/60 mb-6">Todas tus citas anteriores han sido completadas o canceladas</p>
+              <Link
+                href="/"
+                className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-white font-semibold rounded-xl hover:bg-concrete transition-colors"
+              >
+                Reservar nueva cita <ChevronRight className="w-5 h-5" aria-hidden="true" />
               </Link>
             </div>
           )}

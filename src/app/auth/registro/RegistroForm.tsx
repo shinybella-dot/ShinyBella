@@ -54,7 +54,7 @@ export default function RegistroForm() {
           nombre: formData.nombre,
           telefono: formData.telefono,
         },
-        emailRedirectTo: `${window.location.origin}/auth/callback?next=${redirect}`,
+        emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL || (typeof window !== 'undefined' ? window.location.origin : '')}/auth/callback?next=${redirect}`,
       },
     });
 

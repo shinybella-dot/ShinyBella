@@ -38,9 +38,10 @@ export default function LoginForm() {
   };
 
   const handleOAuthLogin = async (provider: 'google' | 'github') => {
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || (typeof window !== 'undefined' ? window.location.origin : '');
     const { error } = await supabase.auth.signInWithOAuth({
       provider,
-      options: { redirectTo: `${window.location.origin}/auth/callback?next=${redirect}` },
+      options: { redirectTo: `${appUrl}/auth/callback?next=${redirect}` },
     });
     if (error) setError(error.message);
   };

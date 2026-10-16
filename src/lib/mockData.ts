@@ -1,6 +1,6 @@
 import { Salon, Servicio, Estilista } from './types';
 
-export type { Salon, Servicio, Estilista } from './types';
+export type { Salon, Servicio, Estilista };
 
 export const mockSalones: Salon[] = [
   {
@@ -11,7 +11,7 @@ export const mockSalones: Salon[] = [
     lng: -89.5557,
     telefono: '+503 2200-1111',
     rating: 4.8,
-    imagen_url: null,
+    imagen_url: 'https://images.unsplash.com/photo-1560066984-138dadb4c035?auto=format&fit=crop&w=1200&q=80',
     activo: true,
     created_at: '2024-01-15T10:00:00Z',
   },
@@ -23,7 +23,7 @@ export const mockSalones: Salon[] = [
     lng: -89.5521,
     telefono: '+503 2200-2222',
     rating: 4.9,
-    imagen_url: null,
+    imagen_url: 'https://images.unsplash.com/photo-1503951914875-452162b0f3f1?auto=format&fit=crop&w=1200&q=80',
     activo: true,
     created_at: '2024-01-20T10:00:00Z',
   },
@@ -35,7 +35,7 @@ export const mockSalones: Salon[] = [
     lng: -89.5589,
     telefono: '+503 2200-3333',
     rating: 4.7,
-    imagen_url: null,
+    imagen_url: 'https://images.unsplash.com/photo-1604654894610-df63bc536371?auto=format&fit=crop&w=1200&q=80',
     activo: true,
     created_at: '2024-02-01T10:00:00Z',
   },
@@ -47,7 +47,7 @@ export const mockSalones: Salon[] = [
     lng: -89.5498,
     telefono: '+503 2200-4444',
     rating: 4.6,
-    imagen_url: null,
+    imagen_url: 'https://images.unsplash.com/photo-1570172619644-dfd03ed5d881?auto=format&fit=crop&w=1200&q=80',
     activo: true,
     created_at: '2024-02-10T10:00:00Z',
   },
@@ -59,7 +59,7 @@ export const mockSalones: Salon[] = [
     lng: -89.5623,
     telefono: '+503 2200-5555',
     rating: 4.9,
-    imagen_url: null,
+    imagen_url: 'https://images.unsplash.com/photo-1585747860715-2ba37e788b70?auto=format&fit=crop&w=1200&q=80',
     activo: true,
     created_at: '2024-02-15T10:00:00Z',
   },

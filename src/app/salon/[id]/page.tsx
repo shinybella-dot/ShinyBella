@@ -45,9 +45,11 @@ export default function SalonPage() {
     setLoading(false);
   }, [salonId, router]);
 
-  // Cargar horarios ocupados cuando se selecciona servicio y fecha
+  // Cargar horarios ocupados cuando se selecciona servicio, fecha o estilista
   useEffect(() => {
     if (!selectedServicio || !selectedFecha || !salonId) return;
+
+    const abortController = new AbortController();
 
     const fetchBookedSlots = async () => {
       const fechaStr = selectedFecha.toISOString().split('T')[0];
@@ -57,7 +59,10 @@ export default function SalonPage() {
         .select('estilista_id, hora')
         .eq('salon_id', salonId)
         .eq('fecha', fechaStr)
-        .in('estado', ['pendiente', 'confirmada']);
+        .in('estado', ['pendiente', 'confirmada'])
+        .abortSignal(abortController.signal);
+
+      if (abortController.signal.aborted) return;
 
       if (reservas) {
         const booked: Record<string, string[]> = {};
@@ -70,7 +75,9 @@ export default function SalonPage() {
     };
 
     fetchBookedSlots();
-  }, [selectedServicio, selectedFecha, salonId]);
+
+    return () => abortController.abort();
+  }, [selectedServicio, selectedFecha, selectedEstilistaId, salonId]);
 
   if (loading) {
     return (
@@ -97,19 +104,50 @@ export default function SalonPage() {
     setStep(3);
   };
 
-  const handleConfirmar = () => {
-    if (selectedServicio && selectedFecha && selectedHora && selectedEstilistaId) {
-      const reservaData = {
-        salonId: salon.id,
-        servicioId: selectedServicio.id,
-        estilistaId: selectedEstilistaId,
-        fecha: selectedFecha.toISOString().split('T')[0],
-        hora: selectedHora,
-        precio: selectedServicio.precio,
-      };
-      localStorage.setItem('shinybella_pending_reserva', JSON.stringify(reservaData));
-      router.push('/checkout');
+  const handleConfirmar = async () => {
+    if (!selectedServicio || !selectedFecha || !selectedHora || !selectedEstilistaId) return;
+
+    // Re-verificar que el slot sigue libre antes de ir a checkout
+    const fechaStr = selectedFecha.toISOString().split('T')[0];
+    const { data: existingReservas } = await supabase
+      .from('reservas')
+      .select('id')
+      .eq('salon_id', salonId)
+      .eq('estilista_id', selectedEstilistaId)
+      .eq('fecha', fechaStr)
+      .eq('hora', selectedHora)
+      .in('estado', ['pendiente', 'confirmada']);
+
+    if (existingReservas && existingReservas.length > 0) {
+      alert('Este horario ya no está disponible. Por favor, elige otro.');
+      // Recargar slots ocupados
+      const { data: reservas } = await supabase
+        .from('reservas')
+        .select('estilista_id, hora')
+        .eq('salon_id', salonId)
+        .eq('fecha', fechaStr)
+        .in('estado', ['pendiente', 'confirmada']);
+      if (reservas) {
+        const booked: Record<string, string[]> = {};
+        reservas.forEach((r: { estilista_id: string; hora: string }) => {
+          if (!booked[r.estilista_id]) booked[r.estilista_id] = [];
+          booked[r.estilista_id].push(r.hora.slice(0, 5));
+        });
+        setBookedSlots(booked);
+      }
+      return;
     }
+
+    const reservaData = {
+      salonId: salon.id,
+      servicioId: selectedServicio.id,
+      estilistaId: selectedEstilistaId,
+      fecha: fechaStr,
+      hora: selectedHora,
+      precio: selectedServicio.precio,
+    };
+    localStorage.setItem('shinybella_pending_reserva', JSON.stringify(reservaData));
+    router.push('/checkout');
   };
 
   const formatFecha = (date: Date) => {

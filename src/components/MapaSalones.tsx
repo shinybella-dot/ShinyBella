@@ -33,7 +33,49 @@ const SelectedIcon = L.icon({
   shadowSize: [41, 41],
 });
 
-L.Marker.prototype.options.icon = DefaultIcon;
+// Función para escapar HTML y prevenir XSS
+  const escapeHtml = (text: string): string => {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  };
+
+  const createPopupContent = (salon: Salon): HTMLElement => {
+    const container = document.createElement('div');
+    container.className = 'p-1 min-w-[200px]';
+    
+    const h3 = document.createElement('h3');
+    h3.className = 'font-semibold text-concrete text-base mb-1';
+    h3.textContent = salon.nombre;
+    container.appendChild(h3);
+    
+    const p = document.createElement('p');
+    p.className = 'text-warm-steel/70 text-sm mb-2';
+    p.textContent = salon.direccion;
+    container.appendChild(p);
+    
+    const div = document.createElement('div');
+    div.className = 'flex items-center gap-2 text-sm';
+    
+    const span1 = document.createElement('span');
+    span1.className = 'flex items-center gap-1 text-amber-600';
+    const star = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    star.setAttribute('class', 'w-3 h-3 fill-current');
+    star.setAttribute('aria-hidden', 'true');
+    star.setAttribute('viewBox', '0 0 24 24');
+    star.innerHTML = '<path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>';
+    span1.appendChild(star);
+    span1.appendChild(document.createTextNode(` ${salon.rating.toFixed(1)}`));
+    div.appendChild(span1);
+    
+    const span2 = document.createElement('span');
+    span2.className = 'text-warm-steel/60';
+    span2.textContent = `· ${salon.telefono}`;
+    div.appendChild(span2);
+    
+    container.appendChild(div);
+    return container;
+  };
 
 interface MapaSalonesProps {
   salones: Salon[];
@@ -105,19 +147,7 @@ export default function MapaSalones({
           riseOnHover: true,
         });
 
-        marker.bindPopup(`
-          <div class="p-1 min-w-[200px]">
-            <h3 class="font-semibold text-concrete text-base mb-1">${salon.nombre}</h3>
-            <p class="text-warm-steel/70 text-sm mb-2">${salon.direccion}</p>
-            <div class="flex items-center gap-2 text-sm">
-              <span class="flex items-center gap-1 text-amber-600">
-                <Star className="w-3 h-3 fill-current" aria-hidden="true" />
-                ${salon.rating.toFixed(1)}
-              </span>
-              <span class="text-warm-steel/60">· ${salon.telefono}</span>
-            </div>
-          </div>
-        `);
+        marker.bindPopup(createPopupContent(salon));
 
         marker.on('click', () => onSelectSalon(salon));
         marker.addTo(map);
@@ -152,13 +182,24 @@ export default function MapaSalones({
           const coords: [number, number] = [position.coords.latitude, position.coords.longitude];
           mapRef.current?.setView(coords, 15, { animate: true });
 
-          L.marker(coords, { icon: DefaultIcon })
-            .addTo(mapRef.current!)
-            .bindPopup('Tu ubicación actual')
-            .openPopup();
+          const userMarker = L.marker(coords, { icon: DefaultIcon });
+          const popupContent = document.createElement('div');
+          popupContent.textContent = 'Tu ubicación actual';
+          userMarker.bindPopup(popupContent);
+          userMarker.addTo(mapRef.current!).openPopup();
         },
-        () => {
-          alert('No se pudo obtener tu ubicación. Asegúrate de permitir el acceso.');
+        (error) => {
+          let message = 'No se pudo obtener tu ubicación.';
+          if (error.code === error.PERMISSION_DENIED) {
+            message = 'Permiso de ubicación denegado. Actívalo en la configuración del navegador.';
+          } else if (error.code === error.POSITION_UNAVAILABLE) {
+            message = 'Ubicación no disponible.';
+          } else if (error.code === error.TIMEOUT) {
+            message = 'Tiempo de espera agotado al obtener ubicación.';
+          }
+          console.warn('Geolocation error:', message);
+          // TODO: Reemplazar con toast notification
+          alert(message);
         },
         { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
       );
