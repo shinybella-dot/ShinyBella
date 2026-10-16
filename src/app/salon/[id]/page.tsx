@@ -169,7 +169,7 @@ export default function SalonPage() {
           </Link>
 
           <div className="grid lg:grid-cols-3 gap-8">
-            <div className="lg:col-span-2 space-y-6">
+            <div className="lg:col-span-2 min-w-0 space-y-6">
               <article className="bg-white rounded-2xl border border-warm-steel/20 overflow-hidden shadow-sm">
                 <div className="aspect-[16/9] bg-surface-light relative">
                   {salon.imagen_url ? (
@@ -232,7 +232,7 @@ export default function SalonPage() {
               </section>
 
               {selectedServicio && (
-                <section className="bg-white rounded-2xl border border-warm-steel/20 p-6 animate-slide-up">
+                <section className="bg-white rounded-2xl border border-warm-steel/20 p-4 sm:p-6 overflow-hidden animate-slide-up">
                   <h2 className="text-xl font-bold text-concrete mb-6">Elige tu estilista, fecha y hora</h2>
                   <TimeSlotPicker
                     estilistas={estilistas}
@@ -286,7 +286,7 @@ export default function SalonPage() {
               )}
             </div>
 
-            <aside className="lg:col-span-1">
+            <aside className="lg:col-span-1 min-w-0">
               <div className="bg-white rounded-2xl border border-warm-steel/20 p-6 sticky top-24 space-y-6">
                 <div>
                   <h3 className="font-semibold text-concrete mb-4">Información del salón</h3>

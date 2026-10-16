@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Calendar, User, ChevronLeft, ChevronRight, Clock, Lock } from 'lucide-react';
-import { format, addDays, startOfWeek, endOfWeek, isSameDay, parseISO, isBefore, startOfDay } from 'date-fns';
+import { format, addDays, startOfWeek, endOfWeek, isSameDay, isBefore, startOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Estilista } from '@/lib/types';
 
@@ -34,6 +34,19 @@ export default function TimeSlotPicker({
 }: TimeSlotPickerProps) {
   const [currentWeekStart, setCurrentWeekStart] = useState(() => startOfWeek(minDate, { weekStartsOn: 1 }));
   const [expandedEstilista, setExpandedEstilista] = useState<string | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Estados locales de la vista móvil (se confirman al tocar una hora)
+  const [mobileDay, setMobileDay] = useState<Date | null>(null);
+  const [mobileEstilistaId, setMobileEstilistaId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 767px)');
+    const handler = () => setIsMobile(mq.matches);
+    handler();
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, []);
 
   const weekDays = useMemo(() => {
     const days = [];
@@ -72,6 +85,182 @@ export default function TimeSlotPicker({
     return bookedSlots[estilistaId]?.includes(hora) ?? false;
   };
 
+  const weekContains = (d: Date | null | undefined) =>
+    !!d && weekDays.some((w) => isSameDay(w, d));
+
+  // ====== VISTA MÓVIL: día + estilista + grid de horas (sin tabla ancha) ======
+  if (isMobile) {
+    const defaultDay =
+      weekDays.find((d) => !isPastDate(d)) ||
+      weekDays.find((d) => isSameDay(d, startOfDay(minDate))) ||
+      weekDays[0];
+
+    const activeDay = weekContains(mobileDay)
+      ? mobileDay!
+      : weekContains(selectedFecha)
+      ? selectedFecha!
+      : defaultDay;
+
+    const activeEstilistaId =
+      mobileEstilistaId && estilistas.some((e) => e.id === mobileEstilistaId)
+        ? mobileEstilistaId
+        : selectedEstilistaId && estilistas.some((e) => e.id === selectedEstilistaId)
+        ? selectedEstilistaId
+        : estilistas[0]?.id;
+
+    if (estilistas.length === 0) {
+      return (
+        <div className="text-center py-8">
+          <User className="w-10 h-10 text-warm-steel/30 mx-auto mb-3" aria-hidden="true" />
+          <p className="text-warm-steel/60 text-sm">
+            Este salón no tiene estilistas disponibles aún
+          </p>
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-5">
+        <div className="flex items-center justify-between gap-2">
+          <h3 className="font-semibold text-concrete text-base">Fecha y hora</h3>
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={prevWeek}
+              disabled={isBefore(currentWeekStart, startOfWeek(minDate, { weekStartsOn: 1 }))}
+              className="p-1.5 rounded-lg bg-white border border-warm-steel/20 hover:bg-surface transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              aria-label="Semana anterior"
+            >
+              <ChevronLeft className="w-4 h-4 text-concrete" aria-hidden="true" />
+            </button>
+            <span className="text-xs font-medium text-concrete text-center px-1 whitespace-nowrap">
+              {format(currentWeekStart, 'd MMM', { locale: es })} - {format(endOfWeek(currentWeekStart, { weekStartsOn: 1 }), 'd MMM', { locale: es })}
+            </span>
+            <button
+              onClick={nextWeek}
+              className="p-1.5 rounded-lg bg-white border border-warm-steel/20 hover:bg-surface transition-colors"
+              aria-label="Semana siguiente"
+            >
+              <ChevronRight className="w-4 h-4 text-concrete" aria-hidden="true" />
+            </button>
+          </div>
+        </div>
+
+        {/* Selector de día: 7 chips en una fila, sin scroll horizontal */}
+        <div className="grid grid-cols-7 gap-1.5" role="group" aria-label="Selecciona el día">
+          {weekDays.map((day) => {
+            const past = isPastDate(day);
+            const active = isSameDay(day, activeDay);
+            const today = isSameDay(day, new Date());
+            return (
+              <button
+                key={day.toISOString()}
+                onClick={() => !past && setMobileDay(day)}
+                disabled={past}
+                className={`flex flex-col items-center justify-center py-2 rounded-xl border transition-all ${
+                  active
+                    ? 'bg-accent text-white border-accent shadow-sm'
+                    : past
+                    ? 'bg-warm-steel/10 text-warm-steel/30 border-transparent cursor-not-allowed'
+                    : 'bg-white text-concrete border-warm-steel/20 hover:border-accent/50'
+                }`}
+                aria-pressed={active ? 'true' : 'false'}
+                aria-label={format(day, 'EEEE d MMMM', { locale: es })}
+              >
+                <span className={`text-[10px] uppercase font-medium ${active ? 'text-white/80' : today ? 'text-accent' : 'text-warm-steel/60'}`}>
+                  {format(day, 'EEE', { locale: es })}
+                </span>
+                <span className={`text-sm font-semibold ${active ? 'text-white' : today ? 'text-accent' : 'text-concrete'}`}>
+                  {format(day, 'd')}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Selector de estilista */}
+        {estilistas.length > 1 && (
+          <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1" role="group" aria-label="Selecciona el estilista">
+            {estilistas.map((estilista) => {
+              const active = estilista.id === activeEstilistaId;
+              return (
+                <button
+                  key={estilista.id}
+                  onClick={() => setMobileEstilistaId(estilista.id)}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-full border transition-all flex-shrink-0 ${
+                    active
+                      ? 'bg-accent/10 border-accent text-concrete'
+                      : 'bg-white border-warm-steel/20 text-warm-steel/70'
+                  }`}
+                  aria-pressed={active ? 'true' : 'false'}
+                >
+                  <div className="w-6 h-6 rounded-full bg-surface-light flex items-center justify-center flex-shrink-0 overflow-hidden">
+                    {estilista.imagen_url ? (
+                      <img src={estilista.imagen_url} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      <User className="w-4 h-4 text-warm-steel/40" aria-hidden="true" />
+                    )}
+                  </div>
+                  <span className="text-xs font-medium whitespace-nowrap">{estilista.nombre}</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Grid de horarios: siempre cabe en pantalla */}
+        <div className="grid grid-cols-4 gap-2" role="group" aria-label="Horarios disponibles">
+          {HORARIOS.map((hora) => {
+            const isSelected =
+              selectedEstilistaId === activeEstilistaId &&
+              selectedFecha &&
+              isSameDay(selectedFecha, activeDay) &&
+              selectedHora === hora;
+            const isPast = isPastDate(activeDay) || isPastTime(activeDay, hora);
+            const isBooked = activeEstilistaId ? isSlotBooked(activeEstilistaId, hora) : false;
+
+            return (
+              <button
+                key={hora}
+                onClick={() => !isPast && !isBooked && activeEstilistaId && handleTimeClick(activeEstilistaId, activeDay, hora)}
+                disabled={isPast || isBooked || !activeEstilistaId}
+                className={`h-10 text-sm rounded-lg transition-all flex items-center justify-center gap-1 font-medium ${
+                  isSelected
+                    ? 'bg-accent text-white shadow-sm'
+                    : isPast
+                    ? 'bg-warm-steel/10 text-warm-steel/30 cursor-not-allowed line-through'
+                    : isBooked
+                    ? 'bg-red-50 text-red-500 border border-red-200 cursor-not-allowed'
+                    : 'bg-white border border-warm-steel/20 text-concrete active:bg-surface'
+                }`}
+                aria-pressed={isSelected ? 'true' : 'false'}
+                aria-disabled={isPast || isBooked}
+                aria-label={`${isBooked ? 'Ocupado - ' : ''}${hora}`}
+              >
+                {hora}
+                {isBooked && <Lock className="w-3 h-3" aria-hidden="true" />}
+              </button>
+            );
+          })}
+        </div>
+
+        {selectedFecha && selectedHora && selectedEstilistaId && (
+          <div className="p-3 bg-accent/5 border border-accent/20 rounded-xl flex items-center gap-3">
+            <Calendar className="w-5 h-5 text-accent flex-shrink-0" aria-hidden="true" />
+            <div className="min-w-0">
+              <p className="font-medium text-concrete text-sm">
+                {format(selectedFecha, 'EEEE d MMMM', { locale: es })} a las {selectedHora}
+              </p>
+              <p className="text-warm-steel/60 text-xs truncate">
+                Con {estilistas.find((e) => e.id === selectedEstilistaId)?.nombre}
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // ====== VISTA DESKTOP: tabla completa ======
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
