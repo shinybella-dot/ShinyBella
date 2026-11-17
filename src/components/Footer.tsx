@@ -63,7 +63,7 @@ export default function Footer() {
               </div>
               <span className="font-bold text-xl">ShinyBella</span>
             </Link>
-            <p className="text-warm-steel/80 text-sm mb-6 max-w-xs">
+            <p className="text-dawn/90 text-sm mb-6 max-w-xs">
               Tu cita de belleza en un clic. Conectamos usuarios con los mejores salones y barberías de Santa Ana.
             </p>
             <div className="flex gap-4">
@@ -101,7 +101,7 @@ export default function Footer() {
                 <li key={link.label}>
                   <Link
                     href={link.href}
-                    className="text-warm-steel/80 hover:text-white transition-colors text-sm"
+                    className="text-dawn/90 hover:text-white transition-colors text-sm"
                   >
                     {link.label}
                   </Link>
@@ -117,7 +117,7 @@ export default function Footer() {
                 <li key={link.label}>
                   <Link
                     href={link.href}
-                    className="text-warm-steel/80 hover:text-white transition-colors text-sm"
+                    className="text-dawn/90 hover:text-white transition-colors text-sm"
                   >
                     {link.label}
                   </Link>
@@ -133,7 +133,7 @@ export default function Footer() {
                 <li key={link.label}>
                   <Link
                     href={link.href}
-                    className="text-warm-steel/80 hover:text-white transition-colors text-sm"
+                    className="text-dawn/90 hover:text-white transition-colors text-sm"
                   >
                     {link.label}
                   </Link>
@@ -144,7 +144,7 @@ export default function Footer() {
 
           <div className="col-span-2 lg:col-span-1">
             <h3 className="font-semibold text-lg mb-4">Contacto</h3>
-            <address className="not-italic space-y-3 text-warm-steel/80 text-sm">
+            <address className="not-italic space-y-3 text-dawn/90 text-sm">
               <div className="flex items-start gap-2">
                 <MapPin className="w-5 h-5 mt-0.5 flex-shrink-0" aria-hidden="true" />
                 <span>{contactInfo.direccion}</span>
@@ -166,11 +166,11 @@ export default function Footer() {
         </div>
 
         <div className="mt-12 pt-8 border-t border-white/10 flex flex-col md:flex-row items-center justify-between gap-4">
-          <p className="text-warm-steel/60 text-sm">
+          <p className="text-dawn/80 text-sm">
             © {new Date().getFullYear()} ShinyBella. Todos los derechos reservados.
           </p>
-          <p className="text-warm-steel/60 text-sm">
-            Hecho con ❤️ en El Salvador
+          <p className="text-dawn/80 text-sm">
+            Hecho en El Salvador
           </p>
         </div>
       </div>

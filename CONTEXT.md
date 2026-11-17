@@ -38,7 +38,7 @@ Reglas del producto:
   - Encadenar con `;` o `cmd1; if ($?) { cmd2 }` — NO usar `&&`
   - No existe `sed`; `ls -la` no funciona (usar `Get-ChildItem`)
 - Directorio del proyecto: `C:\Users\MINED\Desktop\ShinyBella\shinybella-proto`
-- `npm run build` funciona y está limpio (33 rutas); warning conocido de Next 16:
+- `npm run build` funciona y está limpio (35 rutas); warning conocido de Next 16:
   `middleware` deprecado ("use proxy instead") — solo warning, funciona igual.
 
 ## 4. Git y despliegue
@@ -48,6 +48,7 @@ Reglas del producto:
     `git push origin master` funciona y GitHub avisa del rename.
 - **Vercel auto-despliega desde `master`** → producción: `https://shiny-bella.vercel.app/`
 - Commits recientes:
+  - `6c98ad4` Ultima versión estable (auditoría completa + correcciones)
   - `bcb0695` feat: Flujo completo negocio post-aprobación (Fase 4)
   - `473d0cd` feat: Wizard de afiliación 3 pasos + API /api/afiliacion
   - `8701e12` feat: Admin panel completo
@@ -72,9 +73,9 @@ Reglas del producto:
   5. `supabase_salon_images.sql` — galería de imágenes
 - La columna `stripe_customer_id` ya NO se escribe desde `stripe-verify` (se quitó para desbloquear el flujo).
 - La cuenta del usuario dueño del proyecto tiene `rol='admin'` en `profiles`.
-- **No existe `SUPABASE_SERVICE_ROLE_KEY`** en el entorno local ni Vercel → todos
-  los API routes usan fallback `SUPABASE_SERVICE_ROLE_KEY || NEXT_PUBLIC_SUPABASE_ANON_KEY`
-  (helper `getSupabaseAdmin`). Esto fue decisión tomada y funciona en producción.
+- `SUPABASE_SERVICE_ROLE_KEY` es **requerido** por `/api/afiliacion` (usa
+  `auth.admin.createUser`). Sin él ese endpoint devuelve 503. El helper
+  `getSupabaseAdmin` avisa cuando falta. Pendiente de agregar en local y Vercel.
 - Los docs de verificación se suben a Storage bucket `verificaciones`.
 
 ## 6. Variables de entorno (estado actual)
@@ -82,21 +83,22 @@ Reglas del producto:
 **Stripe está en TEST MODE** (decisión: seguir en test hasta validar todo; al pasar a
 live hay que recrear Price y Webhook y cambiar las keys).
 
-Locales (`.env.local`) — 8 vars:
+Locales (`.env.local`) — 10 vars:
 ```
 NEXT_PUBLIC_SUPABASE_URL=https://fuzyzoxtvpxkcxxhkmyh.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=sb_publishable_...
 NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_...
 STRIPE_SECRET_KEY=sk_test_...
 STRIPE_PRICE_ID_BASICO=price_1UUjQ24PZG6OUBWjr4R99VOD
-STRIPE_WEBHOOK_SECRET=whsec_XLeH...
+STRIPE_WEBHOOK_SECRET=whsec_XLeH...  (endpoint "Tu cuenta")
+STRIPE_WEBHOOK_SECRET_CONNECT=...     (PENDIENTE: endpoint "Cuentas conectadas")
 RESEND_API_KEY=re_Cx1SSqsg...
 RESEND_FROM_EMAIL=ShinyBella <onboarding@resend.dev>  (debe ser dominio verificado en Resend)
 NEXT_PUBLIC_APP_URL=http://localhost:3000   (en Vercel: https://shiny-bella.vercel.app)
 SUPABASE_SERVICE_ROLE_KEY=...  (PENDIENTE: requerido para auth.admin.createUser en /api/afiliacion)
 ```
 
-Vercel (Environment Variables, 8 vars):
+Vercel (Environment Variables):
 - Las 4 originales: Supabase URL/anon, Stripe pk_test/sk_test
 - Las 4 nuevas (ya agregadas + redeploy hecho):
   - `STRIPE_PRICE_ID_BASICO` (Secret)
@@ -104,13 +106,20 @@ Vercel (Environment Variables, 8 vars):
   - `RESEND_API_KEY` (Secret)
   - `NEXT_PUBLIC_APP_URL` (Config — las `NEXT_PUBLIC_*` solo pueden ser Config
     porque se exponen al navegador por diseño de Next.js)
-- OJO: sigue faltando `SUPABASE_SERVICE_ROLE_KEY` (no bloquea por el fallback)
+- PENDIENTE de agregar en Vercel:
+  - `SUPABASE_SERVICE_ROLE_KEY` (Secret) — requerido por `/api/afiliacion`
+  - `RESEND_FROM_EMAIL` (Secret) — dominio verificado en Resend
+  - `STRIPE_WEBHOOK_SECRET_CONNECT` (Secret) — segundo endpoint de Stripe
 
 **Stripe Dashboard (test mode):**
 - Product: `prod_VVkvFKRn7OG4oi` "Plan Básico ShinyBella" — Price: `price_1UUjQ24PZG6OUBWjr4R99VOD` ($60.10/mes recurrente)
-- Webhook endpoint configurado apuntando a `https://shiny-bella.vercel.app/api/webhook/stripe`
-  con eventos: `customer.subscription.created|updated|deleted`, `invoice.payment_failed`,
-  `account.updated`. Ámbito: "Tu cuenta" (no "Cuentas conectadas").
+- Webhook endpoint existente apuntando a `https://shiny-bella.vercel.app/api/webhook/stripe`
+  con eventos: `customer.subscription.created|updated|deleted`, `invoice.payment_failed`.
+  Ámbito: "Tu cuenta".
+- Stripe no permite un solo endpoint con ambos ámbitos: hay que crear un **segundo**
+  endpoint con la misma URL, ámbito "Cuentas conectadas" y evento `account.updated`.
+  El handler prueba ambos secrets (`STRIPE_WEBHOOK_SECRET` y
+  `STRIPE_WEBHOOK_SECRET_CONNECT`).
 
 ## 7. Arquitectura de la app (rutas y archivos clave)
 
@@ -217,8 +226,8 @@ Paleta (CSS variables en `globals.css` con `@theme inline`):
 2. **Agregar `SUPABASE_SERVICE_ROLE_KEY`** en Vercel + `.env.local` (CRÍTICO: sin ella,
    `/api/afiliacion` devuelve 503)
 3. **Verificar dominio de `RESEND_FROM_EMAIL`** en Resend y configurarlo en Vercel
-4. **Configurar webhook de Stripe con ámbito "Cuentas conectadas"** además de "Tu cuenta"
-   (para recibir `account.updated` de onboarding Connect)
+4. **Crear segundo webhook de Stripe con ámbito "Cuentas conectadas"** (evento
+   `account.updated`) y agregar su secret como `STRIPE_WEBHOOK_SECRET_CONNECT` en Vercel
 5. **Prueba E2E en Vercel** de todo el flujo (el dueño prueba y reporta errores)
 6. **CRUD reales** en los tabs del dashboard de negocio — hoy placeholders
 7. Rotar claves expuestas (Supabase anon, Stripe sk_test) antes de ir a live
@@ -239,5 +248,5 @@ Paleta (CSS variables en `globals.css` con `@theme inline`):
 - Emails con **Resend** (no Supabase SMTP)
 - Geocoding con **Nominatim** (gratis, sin API key)
 - Sin Stripe CLI ni Supabase CLI — verificación directa en Vercel/SQL Editor
-- Sin `SUPABASE_SERVICE_ROLE_KEY` por ahora (fallback anon funciona)
+- `SUPABASE_SERVICE_ROLE_KEY` requerido para afiliación; se agregará en local y Vercel
 - El dueño prueba en Vercel y pide correcciones; la parte visual de horarios va al final

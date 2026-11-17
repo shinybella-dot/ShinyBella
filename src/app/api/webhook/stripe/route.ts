@@ -9,11 +9,18 @@ function getStripe() {
   return new Stripe(secretKey, { apiVersion: '2026-08-26.dahlia' });
 }
 
-const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+function getWebhookSecrets(): string[] {
+  return [
+    process.env.STRIPE_WEBHOOK_SECRET,
+    process.env.STRIPE_WEBHOOK_SECRET_CONNECT,
+  ].filter((value): value is string => typeof value === 'string' && value.length > 0);
+}
 
 export async function POST(request: NextRequest) {
-  if (!webhookSecret) {
-    console.warn('STRIPE_WEBHOOK_SECRET not configured');
+  const webhookSecrets = getWebhookSecrets();
+
+  if (webhookSecrets.length === 0) {
+    console.warn('STRIPE_WEBHOOK_SECRET and STRIPE_WEBHOOK_SECRET_CONNECT not configured');
     return NextResponse.json({ error: 'Webhook not configured' }, { status: 500 });
   }
 
@@ -25,12 +32,19 @@ export async function POST(request: NextRequest) {
   }
 
   const stripe = getStripe();
-  let event: Stripe.Event;
+  let event: Stripe.Event | undefined;
 
-  try {
-    event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
-  } catch (err) {
-    console.error('Webhook signature verification failed:', err instanceof Error ? err.message : err);
+  for (const secret of webhookSecrets) {
+    try {
+      event = stripe.webhooks.constructEvent(body, signature, secret);
+      break;
+    } catch {
+      continue;
+    }
+  }
+
+  if (!event) {
+    console.error('Webhook signature verification failed for all configured secrets');
     return NextResponse.json({ error: 'Invalid signature' }, { status: 400 });
   }
 
