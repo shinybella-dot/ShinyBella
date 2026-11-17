@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { createClient } from '@/lib/supabaseClient';
-import { MapPin, User, Calendar, LogIn, LogOut, Menu, X, ChevronDown, Image, Settings } from 'lucide-react';
+import { MapPin, User, Calendar, LogIn, LogOut, Menu, X, ChevronDown, Image, Settings, Shield } from 'lucide-react';
 import { useState, useEffect } from 'react';
 
 const navLinks = [
@@ -18,9 +18,19 @@ export default function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [user, setUser] = useState<{ email: string; user_metadata: { avatar_url?: string; full_name?: string } } | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const loadIsAdmin = async (userId: string) => {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('rol')
+        .eq('id', userId)
+        .maybeSingle();
+      setIsAdmin(profile?.rol === 'admin');
+    };
+
     const getUser = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
@@ -28,8 +38,10 @@ export default function Header() {
           email: user.email ?? '',
           user_metadata: user.user_metadata ?? {}
         });
+        await loadIsAdmin(user.id);
       } else {
         setUser(null);
+        setIsAdmin(false);
       }
       setLoading(false);
     };
@@ -41,8 +53,10 @@ export default function Header() {
           email: session.user.email ?? '',
           user_metadata: session.user.user_metadata ?? {}
         });
+        void loadIsAdmin(session.user.id);
       } else {
         setUser(null);
+        setIsAdmin(false);
       }
     });
 
@@ -143,6 +157,16 @@ if (loading) {
                       <p className="font-medium text-concrete text-sm">{displayName}</p>
                       <p className="text-warm-steel/60 text-xs truncate">{user.email}</p>
                     </div>
+                    {isAdmin && (
+                      <Link
+                        href="/admin"
+                        className="flex items-center gap-3 px-4 py-2 text-sm text-concrete hover:bg-surface transition-colors"
+                        onClick={() => setUserMenuOpen(false)}
+                      >
+                        <Shield className="w-4 h-4" aria-hidden="true" />
+                        Panel admin
+                      </Link>
+                    )}
                     <Link
                       href="/mis-citas"
                       className="flex items-center gap-3 px-4 py-2 text-sm text-concrete hover:bg-surface transition-colors"
@@ -218,6 +242,16 @@ if (loading) {
               <hr className="border-warm-steel/20" />
               {user ? (
                 <>
+                  {isAdmin && (
+                    <Link
+                      href="/admin"
+                      className="flex items-center gap-2 px-4 py-2 text-base font-medium text-concrete"
+                      onClick={() => setMobileMenuOpen(false)}
+                    >
+                      <Shield className="w-5 h-5" aria-hidden="true" />
+                      Panel admin
+                    </Link>
+                  )}
                   <Link
                     href="/mis-citas"
                     className="flex items-center gap-2 px-4 py-2 text-base font-medium text-concrete"

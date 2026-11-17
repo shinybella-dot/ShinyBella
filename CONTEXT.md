@@ -64,18 +64,16 @@ Reglas del producto:
     extensión de `salones`, tabla `solicitudes_afiliacion`, políticas RLS de
     `salones` y `solicitudes_afiliacion`, bucket de Storage `verificaciones`
   - `supabase_complete_fix.sql` y `supabase_recreate_fks.sql` ejecutados
-  - `supabase_rpc_create_reserva.sql` ejecutado (RPC para crear reservas)
-- **PENDIENTE PARA EJECUTAR EN SQL EDITOR** (en este orden):
-  1. `supabase_reservas_fix.sql` — constraint único anti doble-reserva, columnas `codigo`/`actualizado_en`, políticas RLS
-  2. `supabase_rpc_create_reserva.sql` — RPC reescrita con `auth.uid()` (firma nueva, sin `p_user_id`; retorna `codigo`)
-  3. `supabase_afiliacion_fix.sql` — columna `folio`, policies del bucket `verificaciones`
-  4. `supabase_negocio_fix.sql` — columna `stripe_customer_id` (informativa; el código ya no la usa)
-  5. `supabase_salon_images.sql` — galería de imágenes
+  - `supabase_reservas_fix.sql`, `supabase_rpc_create_reserva.sql`,
+    `supabase_afiliacion_fix.sql`, `supabase_negocio_fix.sql` y
+    `supabase_salon_images.sql` ejecutados con éxito
+  - RPC `create_reserva_atomic` verificada con 7 argumentos y retorno esperado
+- **PENDIENTE PARA EJECUTAR EN SQL EDITOR**:
+  1. `supabase_profiles_fix.sql` — agrega `banned_at`, elimina la política
+     recursiva `Admin ve todos los perfiles` y crea policies usando `public.is_admin()`
 - La columna `stripe_customer_id` ya NO se escribe desde `stripe-verify` (se quitó para desbloquear el flujo).
-- La cuenta del usuario dueño del proyecto tiene `rol='admin'` en `profiles`.
-- `SUPABASE_SERVICE_ROLE_KEY` es **requerido** por `/api/afiliacion` (usa
-  `auth.admin.createUser`). Sin él ese endpoint devuelve 503. El helper
-  `getSupabaseAdmin` avisa cuando falta. Pendiente de agregar en local y Vercel.
+- La cuenta `isaisolis615@gmail.com` tiene `rol='admin'` en `profiles`.
+- `SUPABASE_SERVICE_ROLE_KEY` ya está agregado en local y Vercel.
 - Los docs de verificación se suben a Storage bucket `verificaciones`.
 
 ## 6. Variables de entorno (estado actual)
@@ -91,25 +89,24 @@ NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_...
 STRIPE_SECRET_KEY=sk_test_...
 STRIPE_PRICE_ID_BASICO=price_1UUjQ24PZG6OUBWjr4R99VOD
 STRIPE_WEBHOOK_SECRET=whsec_XLeH...  (endpoint "Tu cuenta")
-STRIPE_WEBHOOK_SECRET_CONNECT=...     (PENDIENTE: endpoint "Cuentas conectadas")
+STRIPE_WEBHOOK_SECRET_CONNECT=whsec_...           (endpoint "Cuentas conectadas")
 RESEND_API_KEY=re_Cx1SSqsg...
-RESEND_FROM_EMAIL=ShinyBella <onboarding@resend.dev>  (debe ser dominio verificado en Resend)
+RESEND_FROM_EMAIL=ShinyBella <onboarding@resend.dev>
 NEXT_PUBLIC_APP_URL=http://localhost:3000   (en Vercel: https://shiny-bella.vercel.app)
-SUPABASE_SERVICE_ROLE_KEY=...  (PENDIENTE: requerido para auth.admin.createUser en /api/afiliacion)
+SUPABASE_SERVICE_ROLE_KEY=...  (ya configurado; requerido por /api/afiliacion)
 ```
 
 Vercel (Environment Variables):
 - Las 4 originales: Supabase URL/anon, Stripe pk_test/sk_test
-- Las 4 nuevas (ya agregadas + redeploy hecho):
+- Ya agregadas + redeploy hecho:
   - `STRIPE_PRICE_ID_BASICO` (Secret)
   - `STRIPE_WEBHOOK_SECRET` (Secret)
+  - `STRIPE_WEBHOOK_SECRET_CONNECT` (Secret)
   - `RESEND_API_KEY` (Secret)
+  - `RESEND_FROM_EMAIL` (Secret) — temporal `onboarding@resend.dev`
+  - `SUPABASE_SERVICE_ROLE_KEY` (Secret)
   - `NEXT_PUBLIC_APP_URL` (Config — las `NEXT_PUBLIC_*` solo pueden ser Config
     porque se exponen al navegador por diseño de Next.js)
-- PENDIENTE de agregar en Vercel:
-  - `SUPABASE_SERVICE_ROLE_KEY` (Secret) — requerido por `/api/afiliacion`
-  - `RESEND_FROM_EMAIL` (Secret) — dominio verificado en Resend
-  - `STRIPE_WEBHOOK_SECRET_CONNECT` (Secret) — segundo endpoint de Stripe
 
 **Stripe Dashboard (test mode):**
 - Product: `prod_VVkvFKRn7OG4oi` "Plan Básico ShinyBella" — Price: `price_1UUjQ24PZG6OUBWjr4R99VOD` ($60.10/mes recurrente)
@@ -221,14 +218,11 @@ Paleta (CSS variables en `globals.css` con `@theme inline`):
 
 ## 10. Tareas pendientes (roadmap inmediato)
 
-1. **Ejecutar los 5 SQL listados en §5** en Supabase SQL Editor (CRÍTICO: sin la RPC nueva,
-   el checkout no puede guardar reservas)
-2. **Agregar `SUPABASE_SERVICE_ROLE_KEY`** en Vercel + `.env.local` (CRÍTICO: sin ella,
-   `/api/afiliacion` devuelve 503)
-3. **Verificar dominio de `RESEND_FROM_EMAIL`** en Resend y configurarlo en Vercel
-4. **Crear segundo webhook de Stripe con ámbito "Cuentas conectadas"** (evento
-   `account.updated`) y agregar su secret como `STRIPE_WEBHOOK_SECRET_CONNECT` en Vercel
-5. **Prueba E2E en Vercel** de todo el flujo (el dueño prueba y reporta errores)
+1. **Ejecutar `supabase_profiles_fix.sql`** en Supabase SQL Editor (CRÍTICO: la política
+   `Admin ve todos los perfiles` causa recursión infinita y falta `banned_at`)
+2. **Prueba E2E en Vercel** de todo el flujo (el dueño prueba y reporta errores)
+3. **Verificar dominio de `RESEND_FROM_EMAIL`** en Resend antes de ir a producción
+   (por ahora se usa `onboarding@resend.dev`, solo entrega al correo de la cuenta)
 6. **CRUD reales** en los tabs del dashboard de negocio — hoy placeholders
 7. Rotar claves expuestas (Supabase anon, Stripe sk_test) antes de ir a live
 8. Al pasar a live: recrear Product/Price y Webhook en live mode, cambiar keys en Vercel
