@@ -1,22 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { getSupabaseAdmin } from '@/lib/supabaseAdmin';
+import { isApiError, requireAdmin } from '@/lib/api-auth';
 
-function getSupabaseAdmin() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-  return createClient(url, serviceKey);
+const SORT_COLUMNS = ['creado_en', 'created_at', 'nombre', 'direccion', 'estado', 'rol'];
+
+function sanitizeSearch(value: string) {
+  return value.replace(/[\\,().]/g, (char) => `\\${char}`);
+}
+
+function sanitizeSort(value: string | null, fallback: string) {
+  return value && SORT_COLUMNS.includes(value) ? value : fallback;
 }
 
 export async function GET(request: NextRequest) {
+  const auth = await requireAdmin();
+  if (isApiError(auth)) return auth;
+
   try {
     const supabase = getSupabaseAdmin();
     const { searchParams } = new URL(request.url);
 
-    const page = parseInt(searchParams.get('page') || '1');
-    const pageSize = parseInt(searchParams.get('pageSize') || '10');
+    const page = Math.max(1, Number.parseInt(searchParams.get('page') || '1', 10) || 1);
+    const pageSize = Math.min(100, Math.max(1, Number.parseInt(searchParams.get('pageSize') || '10', 10) || 10));
     const estado = searchParams.get('estado');
     const search = searchParams.get('search');
-    const sort = searchParams.get('sort') || 'created_at';
+    const sort = sanitizeSort(searchParams.get('sort'), 'created_at');
     const order = searchParams.get('order') || 'desc';
 
     let query = supabase
@@ -28,7 +36,8 @@ export async function GET(request: NextRequest) {
     }
 
     if (search) {
-      query = query.or(`nombre.ilike.%${search}%,direccion.ilike.%${search}%`);
+      const safeSearch = sanitizeSearch(search);
+      query = query.or(`nombre.ilike.%${safeSearch}%,direccion.ilike.%${safeSearch}%`);
     }
 
     query = query.order(sort, { ascending: order === 'asc' });

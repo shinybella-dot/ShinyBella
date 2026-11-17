@@ -37,44 +37,48 @@ export function useAuth(): UseAuthReturn {
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
     );
 
-    const getSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      setUser(session?.user ?? null);
-
-      if (session?.user) {
-        const { data: profileData } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', session.user.id)
-          .single();
-        setProfile(profileData);
-      } else {
-        setProfile(null);
-      }
-      setLoading(false);
+    const loadProfile = async (userId: string): Promise<Profile | null> => {
+      const { data } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .maybeSingle();
+      return (data as Profile | null) ?? null;
     };
 
-    getSession();
+    const loadAuth = async () => {
+      try {
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+        setUser(authUser ?? null);
+        setProfile(authUser ? await loadProfile(authUser.id) : null);
+      } catch (err) {
+        console.error('Error cargando sesión:', err);
+        setUser(null);
+        setProfile(null);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    void loadAuth();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        const { data: profileData } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', session.user.id)
-          .single();
-        setProfile(profileData);
-      } else {
+      try {
+        const currentUser = session?.user ?? null;
+        setUser(currentUser);
+        setProfile(currentUser ? await loadProfile(currentUser.id) : null);
+      } catch (err) {
+        console.error('Error cargando perfil:', err);
         setProfile(null);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     });
 
     return () => subscription.unsubscribe();
   }, []);
 
-  const rol: UserRole = profile?.rol || (user?.user_metadata?.rol as UserRole) || 'cliente';
+  const rol: UserRole = profile?.rol ?? 'cliente';
 
   const hasRole = (roles: UserRole[]) => roles.includes(rol);
 

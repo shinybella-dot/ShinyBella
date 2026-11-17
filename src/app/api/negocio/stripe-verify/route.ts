@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
-import { createClient } from '@supabase/supabase-js';
+import { isApiError, requireSalonOwner } from '@/lib/api-auth';
+import { getSupabaseAdmin } from '@/lib/supabaseAdmin';
 
 function getStripe() {
   const secretKey = process.env.STRIPE_SECRET_KEY;
@@ -8,16 +9,8 @@ function getStripe() {
   return new Stripe(secretKey, { apiVersion: '2026-08-26.dahlia' });
 }
 
-function getSupabaseAdmin() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-  return createClient(url, serviceKey);
-}
-
 export async function GET(request: NextRequest) {
   try {
-    const supabase = getSupabaseAdmin();
-    const stripe = getStripe();
     const { searchParams } = new URL(request.url);
     const sessionId = searchParams.get('session_id');
 
@@ -25,28 +18,32 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'session_id requerido' }, { status: 400 });
     }
 
+    const stripe = getStripe();
     const session = await stripe.checkout.sessions.retrieve(sessionId, {
-      expand: ['subscription', 'customer'],
+      expand: ['subscription'],
     });
 
     if (session.payment_status !== 'paid') {
       return NextResponse.json({ error: 'Pago no completado' }, { status: 400 });
     }
 
-    const salonId = session.client_reference_id || session.metadata?.salon_id;
-    const subscriptionId = session.subscription as string;
-    const customerId = session.customer as string;
+    const subscription = session.subscription as Stripe.Subscription | string | null;
+    const subscriptionId = typeof subscription === 'string' ? subscription : subscription?.id;
+    const salonId =
+      session.client_reference_id ||
+      (typeof subscription !== 'string' ? subscription?.metadata?.salon_id : undefined) ||
+      session.metadata?.salon_id;
 
-    if (!salonId) {
+    if (!salonId || !subscriptionId) {
       return NextResponse.json({ error: 'No se pudo identificar el salón' }, { status: 400 });
     }
 
-    const { error } = await supabase
+    const auth = await requireSalonOwner(salonId);
+    if (isApiError(auth)) return auth;
+
+    const { error } = await getSupabaseAdmin()
       .from('salones')
-      .update({
-        stripe_subscription_id: subscriptionId,
-        stripe_customer_id: customerId,
-      })
+      .update({ stripe_subscription_id: subscriptionId })
       .eq('id', salonId);
 
     if (error) {
@@ -55,10 +52,10 @@ export async function GET(request: NextRequest) {
     }
 
     return NextResponse.json({ success: true, salonId, subscriptionId });
-  } catch (error: any) {
+  } catch (error) {
     console.error('Stripe verify error:', error);
     return NextResponse.json(
-      { error: error.message || 'Error verificando pago' },
+      { error: error instanceof Error ? error.message : 'Error verificando pago' },
       { status: 500 }
     );
   }

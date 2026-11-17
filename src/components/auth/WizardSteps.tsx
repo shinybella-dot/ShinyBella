@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useForm, Controller } from 'react-hook-form';
+import { useState, useEffect, useRef } from 'react';
+import { useForm, Controller, FieldPath, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { ArrowLeft, ArrowRight, Check, Loader2, MapPin, Building2, User, Mail, Phone, FileText, Image, AlertCircle } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, Loader2, Building2, User, FileText, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
-import { paso1Schema, paso2Schema, paso3Schema, wizardSchema, WizardData, tiposNegocio } from '@/lib/validations/negocio';
+import { useRouter } from 'next/navigation';
+import { wizardSchema, WizardData, tiposNegocio } from '@/lib/validations/negocio';
 import FileUpload from '@/components/ui/FileUpload';
 import { toast } from 'sonner';
 
@@ -15,33 +16,56 @@ const STEPS = [
   { id: 3, title: 'Documentos', icon: FileText, description: 'Verificación legal' },
 ];
 
-const geocodeAddress = async (direccion: string): Promise<{ lat: number; lng: number } | null> => {
+const geocodeAddress = async (direccion: string, signal: AbortSignal): Promise<{ lat: number; lng: number } | null> => {
   try {
     const encoded = encodeURIComponent(`${direccion}, Santa Ana, El Salvador`);
-    const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encoded}&limit=1`);
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/search?format=json&q=${encoded}&limit=1`,
+      { signal, headers: { Accept: 'application/json' } }
+    );
+    if (!res.ok) throw new Error(`Nominatim respondió ${res.status}`);
     const data = await res.json();
-    if (data.length > 0) {
-      return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
+    const first = Array.isArray(data) ? data[0] : null;
+    const lat = Number(first?.lat);
+    const lng = Number(first?.lon);
+    if (
+      first &&
+      Number.isFinite(lat) && lat >= -90 && lat <= 90 &&
+      Number.isFinite(lng) && lng >= -180 && lng <= 180
+    ) {
+      return { lat, lng };
     }
-  } catch (e) {
-    console.warn('Geocoding failed:', e);
+  } catch (error) {
+    if (!(error instanceof DOMException && error.name === 'AbortError')) {
+      console.warn('Geocoding failed:', error);
+    }
   }
   return null;
 };
 
+const nombreDocumento = (path: string) =>
+  (path.split('/').pop() ?? path).replace(
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}-/i,
+    ''
+  );
+
+const tipoDocumento = (path: string): 'pdf' | 'image' =>
+  /\.pdf$/i.test(path) ? 'pdf' : 'image';
+
 export default function WizardNegocio() {
+  const router = useRouter();
   const [currentStep, setCurrentStep] = useState(1);
   const [submitting, setSubmitting] = useState(false);
   const [geocoding, setGeocoding] = useState(false);
-  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const skipPersistRef = useRef(true);
 
   const {
-    register,
     handleSubmit,
     watch,
     setValue,
     getValues,
-    formState: { errors, isValid },
+    trigger,
+    formState: { errors },
     control,
   } = useForm<WizardData>({
     resolver: zodResolver(wizardSchema),
@@ -50,79 +74,103 @@ export default function WizardNegocio() {
       tipo: 'Salón de belleza',
       descripcion: '',
       horario: 'Lunes a Sábado: 8:00 - 20:00',
+      lat: null,
+      lng: null,
     },
   });
 
-  const paso1Data = watch(['nombreSalon', 'tipo', 'direccion', 'telefono', 'email', 'descripcion', 'horario']);
-  const paso2Data = watch(['responsable', 'dui_nit', 'cargo', 'email', 'telefono']);
+  const email = watch('email') || '';
+  const uploadPath = `solicitudes/${email}`;
   const [duiUrl, patenteUrl, selfieUrl] = watch(['dui_url', 'patente_url', 'selfie_url']);
 
   useEffect(() => {
     const saved = localStorage.getItem('afiliacion_wizard');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        Object.entries(parsed).forEach(([key, value]) => setValue(key as keyof WizardData, value as any));
-      } catch {}
-    }
+    if (!saved) return;
+    try {
+      const parsed = JSON.parse(saved) as Record<string, unknown>;
+      Object.entries(parsed).forEach(([key, value]) => {
+        if (typeof value === 'string' && value.startsWith('blob:')) {
+          URL.revokeObjectURL(value);
+          return;
+        }
+        setValue(key as FieldPath<WizardData>, value as never, { shouldDirty: true });
+      });
+    } catch {}
   }, [setValue]);
 
+  const formValues = useWatch({ control });
+
   useEffect(() => {
-    const data = getValues();
-    localStorage.setItem('afiliacion_wizard', JSON.stringify(data));
-  }, [getValues]);
+    if (skipPersistRef.current) {
+      skipPersistRef.current = false;
+      return;
+    }
+    try {
+      localStorage.setItem('afiliacion_wizard', JSON.stringify(formValues));
+    } catch {}
+  }, [formValues]);
 
   const handleDireccionBlur = async () => {
     const direccion = getValues('direccion');
-    if (direccion && direccion.length > 10) {
-      setGeocoding(true);
-      const coordsResult = await geocodeAddress(direccion);
+    if (!direccion || direccion.length <= 10) return;
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
+    setGeocoding(true);
+    try {
+      const coordsResult = await geocodeAddress(direccion, controller.signal);
+      if (getValues('direccion') !== direccion) return;
       if (coordsResult) {
-        setCoords(coordsResult);
+        setValue('lat', coordsResult.lat, { shouldDirty: true, shouldValidate: true });
+        setValue('lng', coordsResult.lng, { shouldDirty: true, shouldValidate: true });
         toast.success('Ubicación detectada automáticamente');
+      } else {
+        setValue('lat', null, { shouldDirty: true, shouldValidate: true });
+        setValue('lng', null, { shouldDirty: true, shouldValidate: true });
+        toast.error('No se pudo detectar la ubicación. Ajusta la dirección y vuelve a intentar.');
       }
+    } finally {
+      clearTimeout(timeout);
       setGeocoding(false);
     }
   };
 
-  const nextStep = () => {
-    const stepFields: Record<number, string[]> = {
+  const nextStep = async () => {
+    const stepFields: Record<number, FieldPath<WizardData>[]> = {
       1: ['nombreSalon', 'tipo', 'direccion', 'telefono', 'email'],
       2: ['responsable', 'dui_nit', 'cargo', 'email', 'telefono'],
       3: [],
     };
-    const valid = stepFields[currentStep]?.every(
-      (field) => !errors[field as keyof WizardData]
-    );
-    if (valid || currentStep === 3) {
-      setCurrentStep((s) => Math.min(s + 1, 3));
-    } else {
+    const valid = await trigger(stepFields[currentStep] ?? [], { shouldFocus: true });
+    if (!valid) {
       toast.error('Completa los campos obligatorios');
+      return;
     }
+    if (currentStep === 1 && (getValues('lat') == null || getValues('lng') == null)) {
+      toast.error('Detecta la ubicación de la dirección antes de continuar');
+      return;
+    }
+    setCurrentStep((step) => Math.min(step + 1, 3));
   };
 
-  const prevStep = () => setCurrentStep((s) => Math.max(s - 1, 1));
+  const prevStep = () => setCurrentStep((step) => Math.max(step - 1, 1));
 
   const onSubmit = async (data: WizardData) => {
+    if (submitting) return;
     setSubmitting(true);
     try {
-      const payload = {
-        ...data,
-        lat: coords?.lat,
-        lng: coords?.lng,
-      };
       const res = await fetch('/api/afiliacion', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(data),
       });
       const result = await res.json();
       if (!res.ok) throw new Error(result.error || 'Error al enviar');
       localStorage.removeItem('afiliacion_wizard');
-      toast.success('¡Solicitud enviada! Revisión en 24-48h.');
-      setTimeout(() => window.location.href = '/auth/login', 2000);
-    } catch (err: any) {
-      toast.error(err.message || 'Error al enviar la solicitud');
+      toast.success(`¡Solicitud enviada! Folio ${result.folio ?? ''}`.trim());
+      setTimeout(() => router.push('/auth/login'), 2000);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Error al enviar la solicitud');
     } finally {
       setSubmitting(false);
     }
@@ -168,7 +216,7 @@ export default function WizardNegocio() {
                     {...field}
                     className="w-full px-4 py-3 bg-surface-light border border-warm-steel/20 rounded-xl text-concrete focus:outline-none focus:ring-2 focus:ring-accent/50"
                   >
-                    {['Salón de belleza', 'Barbería', 'Spa', 'Estética', 'Estudio de uñas', 'Otro'].map((t) => <option key={t} value={t}>{t}</option>)}
+                    {tiposNegocio.map((tipo) => <option key={tipo} value={tipo}>{tipo}</option>)}
                   </select>
                   {errors.tipo && <p className="mt-1 text-sm text-red-600">{errors.tipo.message}</p>}
                 </div>
@@ -188,7 +236,7 @@ export default function WizardNegocio() {
                   <input
                     {...field}
                     type="text"
-                    onBlur={handleDireccionBlur}
+                    onBlur={() => { field.onBlur(); void handleDireccionBlur(); }}
                     placeholder="Colonia, calle, número, ciudad"
                     className="w-full px-4 py-3 bg-surface-light border border-warm-steel/20 rounded-xl text-concrete placeholder-warm-steel/40 focus:outline-none focus:ring-2 focus:ring-accent/50"
                   />
@@ -388,8 +436,9 @@ export default function WizardNegocio() {
             <FileUpload
               label="DUI (frente y reverso) *"
               accept=".pdf,.jpg,.jpeg,.png,.webp"
-              onFileSelect={(file) => setValue('dui_url', file ? URL.createObjectURL(file) : '')}
-              currentFile={duiUrl ? { name: 'dui.pdf', url: duiUrl, tipo: 'pdf' } : null}
+              uploadPath={uploadPath}
+              onFileSelect={(path) => setValue('dui_url', typeof path === 'string' ? path : '', { shouldDirty: true, shouldValidate: true })}
+              currentFile={duiUrl ? { name: nombreDocumento(duiUrl), url: duiUrl, tipo: tipoDocumento(duiUrl) } : null}
               error={errors.dui_url?.message}
               required
             />
@@ -397,8 +446,9 @@ export default function WizardNegocio() {
             <FileUpload
               label="Patente de comercio / Registro *"
               accept=".pdf,.jpg,.jpeg,.png,.webp"
-              onFileSelect={(file) => setValue('patente_url', file ? URL.createObjectURL(file) : '')}
-              currentFile={patenteUrl ? { name: 'patente.pdf', url: patenteUrl, tipo: 'pdf' } : null}
+              uploadPath={uploadPath}
+              onFileSelect={(path) => setValue('patente_url', typeof path === 'string' ? path : '', { shouldDirty: true, shouldValidate: true })}
+              currentFile={patenteUrl ? { name: nombreDocumento(patenteUrl), url: patenteUrl, tipo: tipoDocumento(patenteUrl) } : null}
               error={errors.patente_url?.message}
               required
             />
@@ -406,8 +456,9 @@ export default function WizardNegocio() {
             <FileUpload
               label="Selfie con DUI (opcional)"
               accept=".jpg,.jpeg,.png,.webp"
-              onFileSelect={(file) => setValue('selfie_url', file ? URL.createObjectURL(file) : '')}
-              currentFile={selfieUrl ? { name: 'selfie.jpg', url: selfieUrl, tipo: 'image' } : null}
+              uploadPath={uploadPath}
+              onFileSelect={(path) => setValue('selfie_url', typeof path === 'string' ? path : '', { shouldDirty: true, shouldValidate: true })}
+              currentFile={selfieUrl ? { name: nombreDocumento(selfieUrl), url: selfieUrl, tipo: tipoDocumento(selfieUrl) } : null}
               error={errors.selfie_url?.message}
             />
 
@@ -476,7 +527,7 @@ export default function WizardNegocio() {
               {currentStep < 3 ? (
                 <button
                   type="button"
-                  onClick={nextStep}
+                  onClick={() => void nextStep()}
                   className="px-6 py-3 bg-primary text-white font-semibold rounded-xl hover:bg-concrete transition-colors flex items-center gap-2"
                 >
                   Siguiente
@@ -485,7 +536,7 @@ export default function WizardNegocio() {
               ) : (
                 <button
                   type="submit"
-                  disabled={submitting || !isValid}
+                  disabled={submitting}
                   className="px-6 py-3 bg-primary text-white font-semibold rounded-xl hover:bg-concrete transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                 >
                   {submitting ? (

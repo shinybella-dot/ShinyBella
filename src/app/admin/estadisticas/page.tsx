@@ -18,7 +18,7 @@ import {
   Area,
 } from 'recharts';
 import StatCard from '@/components/admin/StatsCards';
-import { Users, Building2, ClipboardList, DollarSign, CalendarClock, TrendingUp } from 'lucide-react';
+import { Users, Building2, ClipboardList, DollarSign, CalendarClock } from 'lucide-react';
 
 interface EstadisticasData {
   kpis: {
@@ -40,18 +40,42 @@ interface EstadisticasData {
 
 const COLORS = ['#CD9FA0', '#525871', '#857C91', '#F2C1A3', '#F8CCAA', '#F5E6D3'];
 
+const EMPTY_DATA: EstadisticasData = {
+  kpis: {
+    solicitudesPendientes: 0,
+    solicitudesTotales: 0,
+    negociosActivos: 0,
+    usuariosTotal: 0,
+    citasSemana: 0,
+    mrr: 0,
+  },
+  charts: {
+    solicitudesPorEstado: {},
+    solicitudesPorDia: [],
+    usuariosPorRol: {},
+    citasPorMes: [],
+    ingresosPorMes: [],
+  },
+};
+
 export default function AdminEstadisticasPage() {
   const [data, setData] = useState<EstadisticasData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetch('/api/admin/stats')
-      .then((r) => r.json())
-      .then((json) => {
+      .then(async (res) => {
+        if (!res.ok) throw new Error(`Error ${res.status} al cargar estadísticas`);
+        const json = await res.json();
         if (json.error) throw new Error(json.error);
         setData(json);
+        setError(null);
       })
-      .catch((err) => console.error('Error loading stats:', err))
+      .catch((err) => {
+        console.error('Error loading stats:', err);
+        setError(err instanceof Error ? err.message : 'No se pudieron cargar las estadísticas');
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -69,8 +93,8 @@ export default function AdminEstadisticasPage() {
     );
   }
 
-  const kpis = data!.kpis;
-  const charts = data!.charts;
+  const kpis = data?.kpis ?? EMPTY_DATA.kpis;
+  const charts = data?.charts ?? EMPTY_DATA.charts;
 
   const estadoData = Object.entries(charts.solicitudesPorEstado).map(([estado, count], i) => ({
     estado,
@@ -93,6 +117,11 @@ export default function AdminEstadisticasPage() {
 
   return (
     <div className="space-y-6">
+      {error && (
+        <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+          {error}
+        </div>
+      )}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl lg:text-3xl font-bold text-concrete">Estadísticas avanzadas</h1>
@@ -169,7 +198,7 @@ export default function AdminEstadisticasPage() {
             </ResponsiveContainer>
           </div>
           <div className="flex flex-wrap gap-4 mt-4 justify-center">
-            {estadoData.map((entry, index) => (
+            {estadoData.map((entry) => (
               <span key={entry.estado} className="flex items-center gap-1.5 text-sm text-warm-steel/70">
                 <span className="w-3 h-3 rounded-full" style={{ backgroundColor: entry.fill }} />
                 {entry.estado} ({entry.count})
@@ -207,7 +236,7 @@ export default function AdminEstadisticasPage() {
             </ResponsiveContainer>
           </div>
           <div className="flex flex-wrap gap-4 mt-4 justify-center">
-            {rolData.map((entry, index) => (
+            {rolData.map((entry) => (
               <span key={entry.rol} className="flex items-center gap-1.5 text-sm text-warm-steel/70">
                 <span className="w-3 h-3 rounded-full" style={{ backgroundColor: entry.fill }} />
                 {entry.rol} ({entry.count})
@@ -238,7 +267,7 @@ export default function AdminEstadisticasPage() {
                   dy={10}
                 />
                 <YAxis tick={{ fontSize: 11, fill: '#857C91' }} />
-<Tooltip
+                <Tooltip
                   formatter={((value: number | undefined, name: string | undefined) => [value ?? 0, name ?? ''] as const) as any}
                   contentStyle={{ backgroundColor: '#fff', border: '1px solid #e0e0e0', borderRadius: '8px' }}
                 />
@@ -277,7 +306,7 @@ export default function AdminEstadisticasPage() {
             </ResponsiveContainer>
           </div>
           <div className="mt-4 space-y-2">
-            {conversionData.map((item, i) => (
+            {conversionData.map((item) => (
               <div key={item.etapa} className="flex items-center justify-between text-sm">
                 <span className="text-warm-steel/70">{item.etapa}</span>
                 <span className="font-semibold text-concrete">{item.count}</span>

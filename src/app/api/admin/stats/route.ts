@@ -1,13 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { NextResponse } from 'next/server';
+import { getSupabaseAdmin } from '@/lib/supabaseAdmin';
+import { isApiError, requireAdmin } from '@/lib/api-auth';
 
-function getSupabaseAdmin() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-  return createClient(url, serviceKey);
-}
+export async function GET() {
+  const auth = await requireAdmin();
+  if (isApiError(auth)) return auth;
 
-export async function GET(request: NextRequest) {
   try {
     const supabase = getSupabaseAdmin();
 
@@ -16,7 +14,7 @@ export async function GET(request: NextRequest) {
       { count: solicitudesTotales },
       { count: negociosActivos },
       { count: usuariosTotal },
-      { data: citasSemana },
+      { count: citasSemana },
       { data: solicitudesPorEstado },
       { data: solicitudesUltimos30Dias },
       { data: mrrData },
@@ -70,7 +68,7 @@ export async function GET(request: NextRequest) {
     const mesesUltimos12 = Array.from({ length: 12 }, (_, i) => {
       const d = new Date();
       d.setMonth(d.getMonth() - i);
-      return d.toISOString().split('T')[0].slice(0, 7); // YYYY-MM
+      return d.toISOString().split('T')[0].slice(0, 7);
     }).reverse();
 
     const citasPorMesData = mesesUltimos12.map((mes) => ({
@@ -106,7 +104,7 @@ export async function GET(request: NextRequest) {
       },
       charts: {
         solicitudesPorEstado: estadoCounts,
-        solicitudesPorDia: solicitudesPorDia,
+        solicitudesPorDia,
         usuariosPorRol: rolCounts,
         citasPorMes: citasPorMesData,
         ingresosPorMes: ingresosPorMesData,

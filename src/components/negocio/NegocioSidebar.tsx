@@ -1,7 +1,6 @@
 'use client';
 
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard,
   Building2,
@@ -15,27 +14,56 @@ import {
   ChevronRight,
   LogOut,
 } from 'lucide-react';
-import { useState } from 'react';
+import * as React from 'react';
 
 interface NegocioSidebarProps {
   salonName?: string;
   onLogout: () => void;
 }
 
+interface NegocioTabContextValue {
+  activeTab: string;
+  setActiveTab: (tab: string) => void;
+}
+
+const NegocioTabContext = React.createContext<NegocioTabContextValue | null>(null);
+
 const navigation = [
-  { href: '/negocio/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/negocio/perfil', label: 'Mi salón', icon: Building2 },
-  { href: '/negocio/imagenes', label: 'Imágenes', icon: Image },
-  { href: '/negocio/servicios', label: 'Servicios', icon: Scissors },
-  { href: '/negocio/estilistas', label: 'Estilistas', icon: Users },
-  { href: '/negocio/horarios', label: 'Horarios', icon: CalendarClock },
-  { href: '/negocio/reservas', label: 'Reservas', icon: Calendar },
-  { href: '/negocio/estadisticas', label: 'Estadísticas', icon: BarChart3 },
+  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { id: 'perfil', label: 'Mi salón', icon: Building2 },
+  { id: 'imagenes', label: 'Imágenes', icon: Image },
+  { id: 'servicios', label: 'Servicios', icon: Scissors },
+  { id: 'estilistas', label: 'Estilistas', icon: Users },
+  { id: 'horarios', label: 'Horarios', icon: CalendarClock },
+  { id: 'reservas', label: 'Reservas', icon: Calendar },
+  { id: 'estadisticas', label: 'Estadísticas', icon: BarChart3 },
 ];
 
+export function NegocioTabProvider({ children }: { children: React.ReactNode }) {
+  const [activeTab, setActiveTab] = React.useState('dashboard');
+  const value = React.useMemo(() => ({ activeTab, setActiveTab }), [activeTab]);
+
+  return <NegocioTabContext.Provider value={value}>{children}</NegocioTabContext.Provider>;
+}
+
+export function useNegocioTab(): NegocioTabContextValue {
+  const context = React.useContext(NegocioTabContext);
+  if (!context) throw new Error('useNegocioTab debe usarse dentro de NegocioTabProvider');
+  return context;
+}
+
 export default function NegocioSidebar({ salonName, onLogout }: NegocioSidebarProps) {
+  const router = useRouter();
   const pathname = usePathname();
-  const [collapsed, setCollapsed] = useState(false);
+  const { activeTab, setActiveTab } = useNegocioTab();
+  const [collapsed, setCollapsed] = React.useState(false);
+
+  const handleSelect = (tab: string) => {
+    setActiveTab(tab);
+    if (pathname !== '/negocio/dashboard') {
+      router.push('/negocio/dashboard');
+    }
+  };
 
   return (
     <aside
@@ -47,14 +75,20 @@ export default function NegocioSidebar({ salonName, onLogout }: NegocioSidebarPr
       <div className="flex flex-col h-full">
         <div className="flex items-center justify-between h-16 px-4 border-b border-warm-steel/20">
           {!collapsed && (
-            <Link href="/negocio/dashboard" className="flex items-center gap-2" aria-label="Mi salón">
+            <button
+              type="button"
+              onClick={() => handleSelect('dashboard')}
+              className="flex items-center gap-2"
+              aria-label="Ir al panel de mi salón"
+            >
               <div className="w-8 h-8 rounded-xl bg-accent/10 flex items-center justify-center">
                 <Scissors className="w-5 h-5 text-accent" aria-hidden="true" />
               </div>
               <span className="font-bold text-concrete text-lg">Mi Salón</span>
-            </Link>
+            </button>
           )}
           <button
+            type="button"
             onClick={() => setCollapsed(!collapsed)}
             className="p-2 rounded-lg text-warm-steel/50 hover:bg-warm-steel/10 transition-colors lg:hidden"
             aria-label={collapsed ? 'Expandir menú' : 'Colapsar menú'}
@@ -66,12 +100,13 @@ export default function NegocioSidebar({ salonName, onLogout }: NegocioSidebarPr
 
         <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto" role="navigation" aria-label="Menú principal">
           {navigation.map((item) => {
-            const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
+            const isActive = pathname === '/negocio/dashboard' && activeTab === item.id;
             return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => handleSelect(item.id)}
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all text-left ${
                   isActive
                     ? 'bg-accent/10 text-accent'
                     : 'text-warm-steel/70 hover:bg-warm-steel/10 hover:text-concrete'
@@ -81,7 +116,7 @@ export default function NegocioSidebar({ salonName, onLogout }: NegocioSidebarPr
               >
                 <item.icon className="w-5 h-5 flex-shrink-0" aria-hidden="true" />
                 {!collapsed && <span>{item.label}</span>}
-              </Link>
+              </button>
             );
           })}
         </nav>
@@ -93,6 +128,7 @@ export default function NegocioSidebar({ salonName, onLogout }: NegocioSidebarPr
                 <p className="text-xs font-medium text-concrete truncate">{salonName || 'Mi Salón'}</p>
               </div>
               <button
+                type="button"
                 onClick={onLogout}
                 className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
               >
@@ -102,6 +138,7 @@ export default function NegocioSidebar({ salonName, onLogout }: NegocioSidebarPr
             </div>
           ) : (
             <button
+              type="button"
               onClick={onLogout}
               className="w-full p-2 rounded-xl text-red-600 hover:bg-red-50 transition-colors"
               title="Cerrar sesión"

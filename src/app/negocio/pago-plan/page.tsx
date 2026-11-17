@@ -59,15 +59,15 @@ export default function NegocioPagoPlanPage() {
       const res = await fetch('/api/negocio/stripe-checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ salonId: salon.id }),
+        body: JSON.stringify({ salon_id: salon.id }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Error al crear sesión de pago');
       if (data.url) {
         window.location.href = data.url;
       }
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al crear sesión de pago');
       setLoading(false);
     }
   };

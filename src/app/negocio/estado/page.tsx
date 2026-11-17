@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth';
 import { useNegocio } from '@/hooks/useNegocio';
-import { Clock, CheckCircle, XCircle, AlertCircle, CreditCard, Link2, Loader2 } from 'lucide-react';
+import { Clock, CheckCircle, XCircle, AlertCircle, Link2, Loader2 } from 'lucide-react';
 
 export default function NegocioEstadoPage() {
   const router = useRouter();

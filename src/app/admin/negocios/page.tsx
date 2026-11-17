@@ -1,16 +1,16 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Search, Building2, ToggleLeft, ToggleRight, Eye, MoreHorizontal } from 'lucide-react';
+import { Search, Eye } from 'lucide-react';
 import DataTable from '@/components/ui/DataTable';
 import Badge from '@/components/ui/Badge';
 
 interface Salon {
   id: string;
   nombre: string;
-  direccion: string;
-  telefono: string;
-  rating: number;
+  direccion: string | null;
+  telefono: string | null;
+  rating: number | null;
   activo: boolean;
   estado_verificacion: 'pendiente' | 'aprobada' | 'rechazada' | 'suspendida';
   owner_id: string | null;
@@ -109,7 +109,10 @@ export default function AdminNegociosPage() {
       render: (row: Salon) => (
         <div>
           <p className="font-medium text-concrete">{row.nombre}</p>
-          <p className="text-xs text-warm-steel/50">{row.direccion.slice(0, 50)}{row.direccion.length > 50 ? '...' : ''}</p>
+          <p className="text-xs text-warm-steel/50">
+            {row.direccion?.slice(0, 50) ?? 'Sin dirección'}
+            {(row.direccion?.length ?? 0) > 50 ? '...' : ''}
+          </p>
         </div>
       ),
     },
@@ -119,7 +122,7 @@ export default function AdminNegociosPage() {
       sortable: false,
       filterable: true,
       render: (row: Salon) => (
-        <a href={`tel:${row.telefono}`} className="text-warm-steel/70 hover:text-accent">{row.telefono}</a>
+        <a href={`tel:${row.telefono ?? ''}`} className="text-warm-steel/70 hover:text-accent">{row.telefono ?? '—'}</a>
       ),
     },
     {
@@ -128,7 +131,7 @@ export default function AdminNegociosPage() {
       sortable: true,
       filterable: true,
       render: (row: Salon) => {
-        const estado = estadoLabels[row.estado_verificacion];
+        const estado = estadoLabels[row.estado_verificacion] ?? { label: 'Desconocido', variant: 'secondary' as const };
         return <Badge variant={estado.variant}>{estado.label}</Badge>;
       },
     },
@@ -162,7 +165,7 @@ export default function AdminNegociosPage() {
       sortable: true,
       filterable: false,
       render: (row: Salon) => (
-        <span className="font-medium text-concrete">{row.rating.toFixed(1)} / 5.0</span>
+        <span className="font-medium text-concrete">{row.rating?.toFixed(1) ?? '—'} / 5.0</span>
       ),
     },
     {

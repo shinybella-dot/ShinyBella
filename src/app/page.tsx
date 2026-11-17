@@ -45,6 +45,16 @@ export default function HomePage() {
   const [selectedSalon, setSelectedSalon] = useState<Salon | null>(null);
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const [search, setSearch] = useState('');
+
+  const filteredSalones = mockSalones.filter((salon) => {
+    if (!search.trim()) return true;
+    const term = search.trim().toLowerCase();
+    return (
+      salon.nombre.toLowerCase().includes(term) ||
+      salon.direccion.toLowerCase().includes(term)
+    );
+  });
 
   useEffect(() => {
     if (navigator.geolocation) {
@@ -80,17 +90,19 @@ export default function HomePage() {
           <h2 className="font-semibold text-concrete mb-3">Salones en Santa Ana</h2>
           <div className="relative">
             <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-warm-steel/40" aria-hidden="true" />
-            <input
-              type="search"
-              placeholder="Buscar salón, servicio..."
-              className="w-full pl-10 pr-4 py-2 bg-surface-light border border-warm-steel/20 rounded-lg text-sm text-concrete placeholder-warm-steel/40 focus:outline-none focus:ring-2 focus:ring-accent/50 focus:border-transparent"
-              aria-label="Buscar salones"
-            />
+              <input
+                type="search"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Buscar salón, servicio..."
+                className="w-full pl-10 pr-4 py-2 bg-surface-light border border-warm-steel/20 rounded-lg text-sm text-concrete placeholder-warm-steel/40 focus:outline-none focus:ring-2 focus:ring-accent/50 focus:border-transparent"
+                aria-label="Buscar salones"
+              />
+            </div>
           </div>
-        </div>
 
-        <div className="flex-1 overflow-y-auto p-4 space-y-3" role="list" aria-label="Lista de salones disponibles">
-          {mockSalones.map((salon) => (
+          <div className="flex-1 overflow-y-auto p-4 space-y-3" role="list" aria-label="Lista de salones disponibles">
+            {filteredSalones.map((salon) => (
             <SalonCard
               key={salon.id}
               salon={salon}
@@ -105,7 +117,8 @@ export default function HomePage() {
 
         <div className="p-4 border-t border-warm-steel/20">
           <Link
-            href="/salones"
+            href="#como-funciona"
+            onClick={() => setIsMobileSidebarOpen(false)}
             className="w-full text-center px-4 py-3 text-sm font-medium text-accent bg-accent/5 rounded-lg hover:bg-accent/10 transition-colors"
           >
             Ver todos los salones <ArrowRight className="w-4 h-4 inline-block ml-1" aria-hidden="true" />
@@ -153,6 +166,8 @@ export default function HomePage() {
               <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-warm-steel/40" aria-hidden="true" />
               <input
                 type="search"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
                 placeholder="Buscar salón, servicio..."
                 className="w-full pl-10 pr-4 py-2 bg-surface-light border border-warm-steel/20 rounded-lg text-sm text-concrete placeholder-warm-steel/40 focus:outline-none focus:ring-2 focus:ring-accent/50 focus:border-transparent"
                 aria-label="Buscar salones"
@@ -161,7 +176,7 @@ export default function HomePage() {
           </div>
 
           <div className="flex-1 overflow-y-auto p-4 space-y-3" role="list" aria-label="Lista de salones disponibles">
-            {mockSalones.map((salon) => (
+            {filteredSalones.map((salon) => (
               <SalonCard
                 key={salon.id}
                 salon={salon}
@@ -173,7 +188,7 @@ export default function HomePage() {
 
           <div className="p-4 border-t border-warm-steel/20">
             <Link
-              href="/salones"
+              href="#como-funciona"
               className="w-full text-center px-4 py-3 text-sm font-medium text-accent bg-accent/5 rounded-lg hover:bg-accent/10 transition-colors"
             >
               Ver todos los salones <ArrowRight className="w-4 h-4 inline-block ml-1" aria-hidden="true" />
@@ -186,7 +201,7 @@ export default function HomePage() {
       <div className="flex-1 relative min-w-0">
         <Suspense fallback={<div className="h-full w-full bg-surface-light flex items-center justify-center"><div className="w-8 h-8 border-4 border-accent border-t-transparent rounded-full animate-spin" aria-hidden="true" /></div>}>
           <MapaSalones
-            salones={mockSalones}
+            salones={filteredSalones}
             selectedSalon={selectedSalon}
             onSelectSalon={setSelectedSalon}
             userLocation={userLocation}
@@ -339,7 +354,7 @@ export default function HomePage() {
                 </div>
               </div>
               <div className="absolute -bottom-6 -right-6 bg-white p-4 rounded-xl shadow-lg border border-warm-steel/20 max-w-xs">
-                <p className="font-semibold text-concrete">📈 +40% citas confirmadas</p>
+                <p className="font-semibold text-concrete">+40% citas confirmadas</p>
                 <p className="text-warm-steel/60 text-sm">Promedio en primeros 3 meses</p>
               </div>
             </div>

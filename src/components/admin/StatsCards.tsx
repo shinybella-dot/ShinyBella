@@ -1,6 +1,6 @@
 'use client';
 
-import { Users, Building2, ClipboardList, DollarSign, CalendarClock, TrendingUp } from 'lucide-react';
+import { TrendingUp } from 'lucide-react';
 
 interface StatCardProps {
   label: string;

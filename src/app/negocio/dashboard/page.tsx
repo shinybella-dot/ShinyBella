@@ -1,10 +1,19 @@
 'use client';
 
-import { useState } from 'react';
 import Link from 'next/link';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs';
-import { LayoutDashboard, Building2, Image, Scissors, Users, CalendarClock, Calendar, BarChart3, Plus, AlertCircle, DollarSign, TrendingUp, User, CreditCard, Shield, X, CheckCircle, Loader2 } from 'lucide-react';
+import { useNegocioTab } from '@/components/negocio/NegocioSidebar';
+import { LayoutDashboard, Building2, Image, Scissors, Users, CalendarClock, Calendar, BarChart3, Plus, AlertCircle, DollarSign, TrendingUp, User, X } from 'lucide-react';
 import { useNegocio } from '@/hooks/useNegocio';
+
+interface SalonResumen {
+  nombre: string;
+  email: string;
+  telefono: string;
+  direccion: string;
+  horario?: string | null;
+  imagen_url: string | null;
+}
 
 const tabs = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -19,7 +28,7 @@ const tabs = [
 
 export default function NegocioDashboardPage() {
   const { salon, estado } = useNegocio();
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const { activeTab, setActiveTab } = useNegocioTab();
 
   if (estado !== 'activo') {
     return (
@@ -46,7 +55,7 @@ export default function NegocioDashboardPage() {
         <p className="text-warm-steel/60 mt-1">Gestiona tu salón: {salon?.nombre}</p>
       </div>
 
-      <Tabs defaultValue={activeTab} onValueChange={setActiveTab}>
+      <Tabs key={activeTab} defaultValue={activeTab} onValueChange={setActiveTab}>
         <TabsList className="grid w-full grid-cols-4 sm:grid-cols-8 gap-2 mb-6">
           {tabs.map((tab) => (
             <TabsTrigger key={tab.id} value={tab.id} className="flex items-center justify-center gap-1.5 py-2.5">
@@ -57,7 +66,7 @@ export default function NegocioDashboardPage() {
         </TabsList>
 
         <TabsContent value="dashboard">
-          <DashboardTab salon={salon!} />
+          <DashboardTab onTabChange={setActiveTab} />
         </TabsContent>
         <TabsContent value="perfil">
           <PerfilTab salon={salon!} />
@@ -66,26 +75,26 @@ export default function NegocioDashboardPage() {
           <ImagenesTab salon={salon!} />
         </TabsContent>
         <TabsContent value="servicios">
-          <ServiciosTab salon={salon!} />
+          <ServiciosTab />
         </TabsContent>
         <TabsContent value="estilistas">
-          <EstilistasTab salon={salon!} />
+          <EstilistasTab />
         </TabsContent>
         <TabsContent value="horarios">
-          <HorariosTab salon={salon!} />
+          <HorariosTab />
         </TabsContent>
         <TabsContent value="reservas">
-          <ReservasTab salon={salon!} />
+          <ReservasTab />
         </TabsContent>
         <TabsContent value="estadisticas">
-          <EstadisticasTab salon={salon!} />
+          <EstadisticasTab />
         </TabsContent>
       </Tabs>
     </div>
   );
 }
 
-function DashboardTab({ salon }: { salon: any }) {
+function DashboardTab({ onTabChange }: { onTabChange: (tab: string) => void }) {
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -108,22 +117,22 @@ function DashboardTab({ salon }: { salon: any }) {
         <div className="bg-white rounded-2xl border border-warm-steel/20 p-6">
           <h3 className="font-semibold text-concrete mb-4">Acciones rápidas</h3>
           <div className="grid grid-cols-2 gap-3">
-            <a href="/negocio/servicios" className="p-4 rounded-xl border border-warm-steel/20 hover:border-accent/50 hover:bg-accent/5 transition-all">
+            <button type="button" onClick={() => onTabChange('servicios')} className="p-4 rounded-xl border border-warm-steel/20 hover:border-accent/50 hover:bg-accent/5 transition-all text-left">
               <Plus className="w-5 h-5 text-accent mb-2" />
               <p className="font-medium text-concrete">Nuevo servicio</p>
-            </a>
-            <a href="/negocio/estilistas" className="p-4 rounded-xl border border-warm-steel/20 hover:border-accent/50 hover:bg-accent/5 transition-all">
+            </button>
+            <button type="button" onClick={() => onTabChange('estilistas')} className="p-4 rounded-xl border border-warm-steel/20 hover:border-accent/50 hover:bg-accent/5 transition-all text-left">
               <Plus className="w-5 h-5 text-accent mb-2" />
               <p className="font-medium text-concrete">Nuevo estilista</p>
-            </a>
-            <a href="/negocio/horarios" className="p-4 rounded-xl border border-warm-steel/20 hover:border-accent/50 hover:bg-accent/5 transition-all">
+            </button>
+            <button type="button" onClick={() => onTabChange('horarios')} className="p-4 rounded-xl border border-warm-steel/20 hover:border-accent/50 hover:bg-accent/5 transition-all text-left">
               <Plus className="w-5 h-5 text-accent mb-2" />
               <p className="font-medium text-concrete">Configurar horarios</p>
-            </a>
-            <a href="/negocio/imagenes" className="p-4 rounded-xl border border-warm-steel/20 hover:border-accent/50 hover:bg-accent/5 transition-all">
+            </button>
+            <button type="button" onClick={() => onTabChange('imagenes')} className="p-4 rounded-xl border border-warm-steel/20 hover:border-accent/50 hover:bg-accent/5 transition-all text-left">
               <Plus className="w-5 h-5 text-accent mb-2" />
               <p className="font-medium text-concrete">Subir imágenes</p>
-            </a>
+            </button>
           </div>
         </div>
       </div>
@@ -131,7 +140,7 @@ function DashboardTab({ salon }: { salon: any }) {
   );
 }
 
-function PerfilTab({ salon }: { salon: any }) {
+function PerfilTab({ salon }: { salon: SalonResumen }) {
   return (
     <div className="bg-white rounded-2xl border border-warm-steel/20 p-6">
       <h3 className="font-semibold text-concrete mb-6">Información del salón</h3>
@@ -166,15 +175,14 @@ function PerfilTab({ salon }: { salon: any }) {
   );
 }
 
-function ImagenesTab({ salon }: { salon: any }) {
-  const [images, setImages] = useState<string[]>(salon.imagen_url ? [salon.imagen_url] : []);
-  const [uploading, setUploading] = useState(false);
+function ImagenesTab({ salon }: { salon: SalonResumen }) {
+  const images = salon.imagen_url ? [salon.imagen_url] : [];
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h3 className="font-semibold text-concrete">Galería del salón</h3>
-        <button className="px-4 py-2 bg-primary text-white rounded-xl hover:bg-concrete flex items-center gap-2" disabled={uploading}>
+        <button type="button" className="px-4 py-2 bg-primary text-white rounded-xl hover:bg-concrete flex items-center gap-2">
           <Plus className="w-4 h-4" />
           Subir imágenes
         </button>
@@ -200,7 +208,7 @@ function ImagenesTab({ salon }: { salon: any }) {
   );
 }
 
-function ServiciosTab({ salon }: { salon: any }) {
+function ServiciosTab() {
   return (
     <div className="bg-white rounded-2xl border border-warm-steel/20 p-6">
       <div className="flex items-center justify-between mb-6">
@@ -219,7 +227,7 @@ function ServiciosTab({ salon }: { salon: any }) {
   );
 }
 
-function EstilistasTab({ salon }: { salon: any }) {
+function EstilistasTab() {
   return (
     <div className="bg-white rounded-2xl border border-warm-steel/20 p-6">
       <div className="flex items-center justify-between mb-6">
@@ -237,7 +245,7 @@ function EstilistasTab({ salon }: { salon: any }) {
   );
 }
 
-function HorariosTab({ salon }: { salon: any }) {
+function HorariosTab() {
   return (
     <div className="bg-white rounded-2xl border border-warm-steel/20 p-6">
       <h3 className="font-semibold text-concrete mb-6">Configurar horarios por estilista</h3>
@@ -246,7 +254,7 @@ function HorariosTab({ salon }: { salon: any }) {
   );
 }
 
-function ReservasTab({ salon }: { salon: any }) {
+function ReservasTab() {
   return (
     <div className="bg-white rounded-2xl border border-warm-steel/20 p-6">
       <h3 className="font-semibold text-concrete mb-6">Reservas</h3>
@@ -259,7 +267,7 @@ function ReservasTab({ salon }: { salon: any }) {
   );
 }
 
-function EstadisticasTab({ salon }: { salon: any }) {
+function EstadisticasTab() {
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

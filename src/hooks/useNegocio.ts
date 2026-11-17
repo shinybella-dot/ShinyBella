@@ -27,14 +27,13 @@ interface Salon {
 export function useNegocio() {
   const { user, profile, loading: authLoading } = useAuth();
   const [salon, setSalon] = useState<Salon | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [fetchedFor, setFetchedFor] = useState<string | null>(null);
+  const shouldFetch = !authLoading && !!user && profile?.rol === 'negocio';
 
   useEffect(() => {
-    if (authLoading) return;
-    if (!user || profile?.rol !== 'negocio') {
-      setLoading(false);
-      return;
-    }
+    if (!shouldFetch || !user) return;
+
+    let active = true;
 
     const fetchSalon = async () => {
       const supabase = createBrowserClient(
@@ -48,16 +47,23 @@ export function useNegocio() {
         .eq('owner_id', user.id)
         .single();
 
+      if (!active) return;
       if (error) {
         console.error('Error fetching salon:', error);
       } else {
         setSalon(data);
       }
-      setLoading(false);
+      setFetchedFor(user.id);
     };
 
     fetchSalon();
-  }, [user, profile?.rol, authLoading]);
+
+    return () => {
+      active = false;
+    };
+  }, [shouldFetch, user]);
+
+  const loading = authLoading || (shouldFetch && fetchedFor !== user?.id);
 
   const estado: 'pendiente' | 'aprobada_sin_pago' | 'conectando_stripe' | 'activo' | 'rechazada' | 'suspendida' = !salon
     ? 'pendiente'
@@ -71,6 +77,8 @@ export function useNegocio() {
     ? 'aprobada_sin_pago'
     : salon.stripe_subscription_id && !salon.stripe_account_id
     ? 'conectando_stripe'
+    : !salon.activo
+    ? 'suspendida'
     : 'activo';
 
   return { salon, estado, loading };

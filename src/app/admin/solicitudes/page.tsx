@@ -1,11 +1,10 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Search, Filter, Download, ChevronUp, ChevronDown } from 'lucide-react';
+import { Search, Eye } from 'lucide-react';
 import DataTable from '@/components/ui/DataTable';
 import SolicitudDetalleModal from '@/components/admin/SolicitudDetalleModal';
 import Badge from '@/components/ui/Badge';
-import { ClipboardList, Eye, MoreHorizontal, CheckCircle, XCircle } from 'lucide-react';
 
 interface Solicitud {
   id: string;
@@ -189,7 +188,7 @@ export default function AdminSolicitudesPage() {
       sortable: true,
       filterable: true,
       render: (row: Solicitud) => {
-        const estado = estadoLabels[row.estado];
+        const estado = estadoLabels[row.estado] ?? { label: 'Desconocido', variant: 'secondary' as const };
         return <Badge variant={estado.variant}>{estado.label}</Badge>;
       },
     },

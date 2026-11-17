@@ -141,50 +141,46 @@ function CheckoutForm() {
     }
 
     if (paymentIntent?.status === 'succeeded' || paymentIntent?.status === 'requires_capture') {
-      setLoadingState({ stage: 'saving_reservation', message: 'Guardando tu reserva...' });
-      
-      if (user && reserva) {
-        // Usar RPC atómica para evitar race conditions
-        const { error: rpcError } = await supabase.rpc('create_reserva_atomic', {
-          p_user_id: user.id,
-          p_salon_id: reserva.salonId,
-          p_servicio_id: reserva.servicioId,
-          p_estilista_id: reserva.estilistaId,
-          p_fecha: reserva.fecha,
-          p_hora: reserva.hora,
-          p_estado: 'confirmada',
-          p_payment_intent_id: paymentIntent.id,
-        });
+      if (!user) {
+        setError('Debes iniciar sesión para confirmar la reserva.');
+        setLoadingState({ stage: 'idle', message: '' });
+        return;
+      }
 
-        if (rpcError) {
-          // Fallback: inserción directa si RPC no existe
-          console.warn('RPC create_reserva_atomic no disponible, usando fallback:', rpcError);
-          const { error: insertError } = await supabase.from('reservas').insert({
-            user_id: user.id,
-            salon_id: reserva.salonId,
-            servicio_id: reserva.servicioId,
-            estilista_id: reserva.estilistaId,
-            fecha: reserva.fecha,
-            hora: reserva.hora,
-            estado: 'confirmada',
-            payment_intent_id: paymentIntent.id,
-          });
-          if (insertError) {
-            setError('Error al guardar la reserva: ' + insertError.message);
-            setLoadingState({ stage: 'idle', message: '' });
-            return;
-          }
-        }
+      setLoadingState({ stage: 'saving_reservation', message: 'Guardando tu reserva...' });
+
+      const { data, error: rpcError } = await supabase.rpc('create_reserva_atomic', {
+        p_salon_id: reserva.salonId,
+        p_servicio_id: reserva.servicioId,
+        p_estilista_id: reserva.estilistaId,
+        p_fecha: reserva.fecha,
+        p_hora: reserva.hora,
+        p_estado: 'confirmada',
+        p_payment_intent_id: paymentIntent.id,
+      });
+
+      if (rpcError) {
+        setError('Error al guardar la reserva: ' + rpcError.message);
+        setLoadingState({ stage: 'idle', message: '' });
+        return;
+      }
+
+      const resultado = data?.[0];
+      if (!resultado?.success) {
+        setError(resultado?.error_message || 'No se pudo guardar la reserva. Intenta de nuevo.');
+        setLoadingState({ stage: 'idle', message: '' });
+        return;
       }
 
       setSuccess(true);
       localStorage.removeItem('shinybella_pending_reserva');
-      // Guardar en localStorage para la página de confirmación
       localStorage.setItem('shinybella_last_reserva', JSON.stringify({
         ...reserva,
+        reservaId: resultado.reserva_id,
+        codigo: resultado.codigo,
         paymentIntentId: paymentIntent.id,
       }));
-      setTimeout(() => router.push(`/confirmacion/${paymentIntent.id}`), 1500);
+      setTimeout(() => router.push(`/confirmacion/${resultado.reserva_id}`), 1500);
     } else {
       setError('El pago no se completó correctamente. Estado: ' + paymentIntent?.status);
       setLoadingState({ stage: 'idle', message: '' });

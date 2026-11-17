@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Search, User, UserPlus, Shield, Ban, MoreHorizontal, Edit2 } from 'lucide-react';
+import { Search, Ban, Edit2 } from 'lucide-react';
 import DataTable from '@/components/ui/DataTable';
 import Badge from '@/components/ui/Badge';
 import Modal from '@/components/ui/Modal';
@@ -153,7 +153,7 @@ export default function AdminUsuariosPage() {
       sortable: true,
       filterable: true,
       render: (row: UserProfile) => {
-        const rol = rolLabels[row.rol];
+        const rol = rolLabels[row.rol] ?? { label: 'Desconocido', variant: 'secondary' as const };
         return <Badge variant={rol.variant}>{rol.label}</Badge>;
       },
     },

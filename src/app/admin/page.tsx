@@ -14,7 +14,7 @@ import {
   Cell,
 } from 'recharts';
 import StatCard, { StatCardSkeleton } from '@/components/admin/StatsCards';
-import { Users, Building2, ClipboardList, DollarSign, CalendarClock, LayoutDashboard } from 'lucide-react';
+import { Users, Building2, ClipboardList, DollarSign, CalendarClock } from 'lucide-react';
 
 interface KPIs {
   solicitudesPendientes: number;
@@ -37,18 +37,38 @@ interface DashboardData {
 
 const COLORS = ['#CD9FA0', '#525871', '#857C91', '#F2C1A3', '#F8CCAA'];
 
+const EMPTY_KPIS: KPIs = {
+  solicitudesPendientes: 0,
+  solicitudesTotales: 0,
+  negociosActivos: 0,
+  usuariosTotal: 0,
+  citasSemana: 0,
+  mrr: 0,
+};
+
+const EMPTY_CHARTS: ChartsData = {
+  solicitudesPorEstado: {},
+  solicitudesPorDia: [],
+};
+
 export default function AdminDashboard() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetch('/api/admin/stats')
-      .then((r) => r.json())
-      .then((json) => {
+      .then(async (res) => {
+        if (!res.ok) throw new Error(`Error ${res.status} al cargar estadísticas`);
+        const json = await res.json();
         if (json.error) throw new Error(json.error);
         setData(json);
+        setError(null);
       })
-      .catch((err) => console.error('Error loading dashboard:', err))
+      .catch((err) => {
+        console.error('Error loading dashboard:', err);
+        setError(err instanceof Error ? err.message : 'No se pudieron cargar las estadísticas');
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -66,8 +86,12 @@ export default function AdminDashboard() {
     );
   }
 
-  const kpis = data!.kpis;
-  const charts = data!.charts;
+  const kpis = data?.kpis ?? EMPTY_KPIS;
+  const charts = data?.charts ?? EMPTY_CHARTS;
+
+  const tasaAprobacion = kpis.solicitudesTotales > 0
+    ? Math.min(100, Math.max(0, ((kpis.solicitudesTotales - kpis.solicitudesPendientes - (charts.solicitudesPorEstado.rechazada || 0)) / kpis.solicitudesTotales) * 100))
+    : null;
 
   const estadoData = Object.entries(charts.solicitudesPorEstado).map(([estado, count], i) => ({
     estado,
@@ -77,6 +101,11 @@ export default function AdminDashboard() {
 
   return (
     <div className="space-y-6">
+      {error && (
+        <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+          {error}
+        </div>
+      )}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl lg:text-3xl font-bold text-concrete">Dashboard</h1>
@@ -156,7 +185,7 @@ export default function AdminDashboard() {
             </ResponsiveContainer>
           </div>
           <div className="flex flex-wrap gap-4 mt-4 justify-center">
-            {estadoData.map((entry, index) => (
+            {estadoData.map((entry) => (
               <span key={entry.estado} className="flex items-center gap-1.5 text-sm text-warm-steel/70">
                 <span className="w-3 h-3 rounded-full" style={{ backgroundColor: entry.fill }} />
                 {entry.estado} ({entry.count})
@@ -266,9 +295,7 @@ export default function AdminDashboard() {
             <div className="flex items-center justify-between py-2 border-b border-warm-steel/10">
               <span className="text-warm-steel/70">Tasa de aprobación</span>
               <span className="font-semibold text-concrete">
-                {kpis.solicitudesTotales > 0
-                  ? `${((kpis.solicitudesTotales - kpis.solicitudesPendientes - (charts.solicitudesPorEstado.rechazada || 0)) / kpis.solicitudesTotales * 104).toFixed(1)}%`
-                  : 'N/A'}
+                {tasaAprobacion === null ? 'N/A' : `${tasaAprobacion.toFixed(1)}%`}
               </span>
             </div>
             <div className="flex items-center justify-between py-2 border-b border-warm-steel/10">

@@ -1,13 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { Suspense, useCallback, useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth';
 import { useNegocio } from '@/hooks/useNegocio';
-import { Loader2, Link2, CheckCircle, ArrowLeft, AlertCircle, CreditCard, Shield } from 'lucide-react';
+import { Loader2, Link2, CheckCircle, ArrowLeft, AlertCircle, Shield } from 'lucide-react';
 
-export default function NegocioConectarStripePage() {
+function ConectarStripeContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, loading: authLoading } = useAuth();
@@ -28,26 +28,26 @@ export default function NegocioConectarStripePage() {
     }
   }, [user, estado, authLoading, negocioLoading, router]);
 
-  useEffect(() => {
-    if (sessionId) {
-      verifyPayment(sessionId);
-    }
-  }, [sessionId]);
-
-  const verifyPayment = async (sessionId: string) => {
+  const verifyPayment = useCallback(async (id: string) => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/negocio/stripe-verify?session_id=${sessionId}`);
+      const res = await fetch(`/api/negocio/stripe-verify?session_id=${id}`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Error verificando pago');
       setConnected(true);
       setTimeout(() => router.push('/negocio/conectar-stripe'), 1500);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error verificando pago');
     } finally {
       setLoading(false);
     }
-  };
+  }, [router]);
+
+  useEffect(() => {
+    if (sessionId) {
+      void verifyPayment(sessionId);
+    }
+  }, [sessionId, verifyPayment]);
 
   const handleConnectStripe = async () => {
     if (!salon) return;
@@ -57,15 +57,15 @@ export default function NegocioConectarStripePage() {
       const res = await fetch('/api/negocio/stripe-connect', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ salonId: salon.id }),
+        body: JSON.stringify({ salon_id: salon.id }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Error conectando Stripe');
       if (data.url) {
         window.location.href = data.url;
       }
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error conectando Stripe');
       setLoading(false);
     }
   };
@@ -227,5 +227,19 @@ export default function NegocioConectarStripePage() {
         .animate-slide-up { animation: slide-up 0.3s ease-out; }
       `}</style>
     </div>
+  );
+}
+
+export default function NegocioConectarStripePage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <div className="w-8 h-8 border-4 border-accent border-t-transparent rounded-full animate-spin" aria-hidden="true" />
+        </div>
+      }
+    >
+      <ConectarStripeContent />
+    </Suspense>
   );
 }

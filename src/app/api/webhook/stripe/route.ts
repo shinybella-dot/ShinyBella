@@ -1,18 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
-import { createClient } from '@supabase/supabase-js';
+import { getSupabaseAdmin } from '@/lib/supabaseAdmin';
 import { sendPagoFallidoEmail, sendStripeConnectCompletadoEmail } from '@/lib/resend';
 
 function getStripe() {
   const secretKey = process.env.STRIPE_SECRET_KEY;
   if (!secretKey) throw new Error('STRIPE_SECRET_KEY not configured');
   return new Stripe(secretKey, { apiVersion: '2026-08-26.dahlia' });
-}
-
-function getSupabaseAdmin() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-  return createClient(url, serviceKey);
 }
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
@@ -35,8 +29,8 @@ export async function POST(request: NextRequest) {
 
   try {
     event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
-  } catch (err: any) {
-    console.error('Webhook signature verification failed:', err.message);
+  } catch (err) {
+    console.error('Webhook signature verification failed:', err instanceof Error ? err.message : err);
     return NextResponse.json({ error: 'Invalid signature' }, { status: 400 });
   }
 
@@ -51,18 +45,13 @@ export async function POST(request: NextRequest) {
 
         if (salonId) {
           const status = subscription.status;
-          const updates: any = {
-            stripe_subscription_id: subscription.id,
-          };
-
-          if (status === 'active' || status === 'trialing') {
-            updates.estado_verificacion = 'aprobada';
-            updates.activo = true;
-          } else if (status === 'past_due' || status === 'canceled' || status === 'unpaid') {
-            updates.activo = false;
-          }
-
-          await supabase.from('salones').update(updates).eq('id', salonId);
+          await supabase
+            .from('salones')
+            .update({
+              stripe_subscription_id: subscription.id,
+              plan_activo: status === 'active' || status === 'trialing' ? 'basico' : null,
+            })
+            .eq('id', salonId);
         }
         break;
       }
@@ -77,6 +66,7 @@ export async function POST(request: NextRequest) {
             .update({
               activo: false,
               stripe_subscription_id: null,
+              plan_activo: null,
               estado_verificacion: 'rechazada',
               rechazado_motivo: 'Suscripción cancelada',
             })
@@ -87,7 +77,10 @@ export async function POST(request: NextRequest) {
 
       case 'invoice.payment_failed': {
         const invoice = event.data.object as Stripe.Invoice;
-        const subscriptionId = (invoice as any).subscription as string | null;
+        const subscriptionRef =
+          (invoice as any).parent?.subscription_details?.subscription || (invoice as any).subscription;
+        const subscriptionId =
+          typeof subscriptionRef === 'string' ? subscriptionRef : subscriptionRef?.id;
 
         if (subscriptionId) {
           const subscription = await stripe.subscriptions.retrieve(subscriptionId);
@@ -117,28 +110,34 @@ export async function POST(request: NextRequest) {
         const account = event.data.object as Stripe.Account;
         const salonId = account.metadata?.salon_id;
 
-        if (salonId && account.charges_enabled && account.payouts_enabled) {
-          await supabase
-            .from('salones')
-            .update({ stripe_account_id: account.id })
-            .eq('id', salonId);
+        if (!salonId || !account.charges_enabled || !account.payouts_enabled) {
+          break;
+        }
 
-          const { data: salon } = await supabase
-            .from('salones')
-            .select('nombre, email')
-            .eq('id', salonId)
-            .single();
+        const { data: salon } = await supabase
+          .from('salones')
+          .select('nombre, email, activo, stripe_subscription_id')
+          .eq('id', salonId)
+          .maybeSingle();
 
-          if (salon) {
-            await sendStripeConnectCompletadoEmail(salon.email, salon.nombre);
-          }
+        if (!salon?.stripe_subscription_id) {
+          break;
+        }
+
+        await supabase
+          .from('salones')
+          .update({ stripe_account_id: account.id, activo: true })
+          .eq('id', salonId);
+
+        if (!salon.activo) {
+          await sendStripeConnectCompletadoEmail(salon.email, salon.nombre);
         }
         break;
       }
     }
 
     return NextResponse.json({ received: true });
-  } catch (error: any) {
+  } catch (error) {
     console.error('Webhook handler error:', error);
     return NextResponse.json(
       { error: 'Webhook handler failed' },

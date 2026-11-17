@@ -32,27 +32,30 @@ function useTabs() {
   return context;
 }
 
-interface TabsListProps extends React.HTMLAttributes<HTMLDivElement> {}
-export function TabsList({ children, ...props }: TabsListProps) {
-  return <div {...props} className="flex border-b border-warm-steel/20 mb-4" role="tablist">{children}</div>;
+type TabsListProps = React.HTMLAttributes<HTMLDivElement>;
+export function TabsList({ children, className, ...props }: TabsListProps) {
+  return <div {...props} className={`flex border-b border-warm-steel/20 mb-4 ${className ?? ''}`} role="tablist">{children}</div>;
 }
 
 interface TabsTriggerProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   value: string;
 }
-export function TabsTrigger({ value, children, ...props }: TabsTriggerProps) {
+export function TabsTrigger({ value, children, className, onClick, ...props }: TabsTriggerProps) {
   const { value: currentValue, onValueChange } = useTabs();
   const isActive = currentValue === value;
-  
+
   return (
     <button
       {...props}
       role="tab"
       aria-selected={isActive}
-      onClick={() => onValueChange(value)}
+      onClick={(event) => {
+        onClick?.(event);
+        onValueChange(value);
+      }}
       className={`flex-1 py-2.5 text-sm font-medium text-center transition-colors border-b-2 ${
         isActive ? 'border-accent text-accent' : 'border-transparent text-warm-steel/60 hover:text-concrete'
-      }`}
+      } ${className ?? ''}`}
     >
       {children}
     </button>
@@ -62,8 +65,8 @@ export function TabsTrigger({ value, children, ...props }: TabsTriggerProps) {
 interface TabsContentProps extends React.HTMLAttributes<HTMLDivElement> {
   value: string;
 }
-export function TabsContent({ value, children, ...props }: TabsContentProps) {
+export function TabsContent({ value, children, className, ...props }: TabsContentProps) {
   const { value: currentValue } = useTabs();
   if (currentValue !== value) return null;
-  return <div {...props} role="tabpanel">{children}</div>;
+  return <div {...props} className={className} role="tabpanel">{children}</div>;
 }

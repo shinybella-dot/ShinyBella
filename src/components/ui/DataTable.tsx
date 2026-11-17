@@ -6,9 +6,7 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
-  Search,
   Filter,
-  MoreHorizontal,
 } from 'lucide-react';
 
 export interface Column<T> {
@@ -50,7 +48,7 @@ interface DataTableProps<T> {
   }[];
 }
 
-function SortIcon({ column, sorting }: { column: string; sorting?: DataTableProps<any>['sorting'] }) {
+function SortIcon({ column, sorting }: { column: string; sorting?: NonNullable<DataTableProps<unknown>['sorting']> }) {
   if (sorting?.column !== column) return <span className="w-4 h-4 text-warm-steel/20" />;
   return sorting.direction === 'asc' ? (
     <ChevronUp className="w-4 h-4 text-accent" />
@@ -103,8 +101,8 @@ export default function DataTable<T>({
             <tbody>
               {[...Array(5)].map((_, i) => (
                 <tr key={i} className="border-b border-warm-steel/10">
-                  {columns.map(() => (
-                    <td key={Math.random()} className="px-4 py-3">
+                  {columns.map((col) => (
+                    <td key={`${i}-${col.key}`} className="px-4 py-3">
                       <div className="h-4 bg-warm-steel/10 rounded w-1/2 animate-pulse" />
                     </td>
                   ))}
@@ -180,7 +178,6 @@ export default function DataTable<T>({
                     col.sortable ? 'cursor-pointer hover:text-concrete select-none' : ''
                   }`}
                   onClick={() => col.sortable && sorting?.onSort(col.key)}
-                  style={{ width: col.className?.includes('w-') ? undefined : undefined }}
                 >
                   <div className="flex items-center gap-1.5">
                     <span>{col.header}</span>

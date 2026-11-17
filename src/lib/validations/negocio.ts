@@ -11,6 +11,9 @@ export const tiposNegocio = [
 
 export const rangosEstilistas = ['1-3', '4-10', '11-20', '20+'] as const;
 
+const latSchema = z.number().min(-90, 'Latitud inválida').max(90, 'Latitud inválida').nullable().optional();
+const lngSchema = z.number().min(-180, 'Longitud inválida').max(180, 'Longitud inválida').nullable().optional();
+
 export const paso1Schema = z.object({
   nombreSalon: z.string().min(2, 'Mínimo 2 caracteres').max(100),
   tipo: z.enum(tiposNegocio, { message: 'Selecciona un tipo válido' }),
@@ -18,9 +21,9 @@ export const paso1Schema = z.object({
   telefono: z.string().regex(/^[+0-9\s()-]{8,}$/, 'Teléfono inválido (mín. 8 dígitos)'),
   email: z.string().email('Email inválido'),
   descripcion: z.string().max(500).optional(),
-  horario: z.string().optional(),
-  lat: z.number().optional(),
-  lng: z.number().optional(),
+  horario: z.string().max(100).optional(),
+  lat: latSchema,
+  lng: lngSchema,
 });
 
 export const paso2Schema = z.object({
@@ -31,10 +34,11 @@ export const paso2Schema = z.object({
   telefono: z.string().regex(/^[+0-9\s()-]{8,}$/, 'Teléfono inválido (mín. 8 dígitos)'),
 });
 
+// Los campos *_url conservan su nombre por compatibilidad, pero contienen paths de Storage.
 export const paso3Schema = z.object({
-  dui_url: z.string().url().optional().or(z.literal('')),
-  patente_url: z.string().url().optional().or(z.literal('')),
-  selfie_url: z.string().url().optional().or(z.literal('')),
+  dui_url: z.string().max(500).optional(),
+  patente_url: z.string().max(500).optional(),
+  selfie_url: z.string().max(500).optional(),
 });
 
 export const wizardSchema = paso1Schema.merge(paso2Schema).merge(paso3Schema);

@@ -26,7 +26,7 @@ export default function MisCitasPage() {
 
       const { data, error } = await supabase
         .from('reservas')
-        .select('*, salon: salones(*), servicio: servicios(*), estilista: estilistas(*)')
+        .select('id, user_id, salon_id, servicio_id, estilista_id, fecha, hora, estado, payment_intent_id, created_at, salon:salones(id, nombre, direccion, imagen_url), servicio:servicios(id, nombre, precio), estilista:estilistas(id, nombre)')
         .eq('user_id', user.id)
         .order('fecha', { ascending: true });
 
@@ -36,7 +36,7 @@ export default function MisCitasPage() {
         return;
       }
 
-      if (data) setReservas(data as Reserva[]);
+      if (data) setReservas(data as unknown as Reserva[]);
       setLoading(false);
     };
 
@@ -65,15 +65,25 @@ export default function MisCitasPage() {
     if (!confirm('¿Seguro que quieres cancelar esta cita?')) return;
 
     setCancellingId(reservaId);
-    const { error } = await supabase
-      .from('reservas')
-      .update({ estado: 'cancelada' })
-      .eq('id', reservaId);
+    try {
+      const response = await fetch('/api/reservas/cancelar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reservaId }),
+      });
+      const result = await response.json();
 
-    if (!error) {
+      if (!response.ok) {
+        alert(result.error || 'No se pudo cancelar la cita');
+        return;
+      }
+
       setReservas(prev => prev.map(r => r.id === reservaId ? { ...r, estado: 'cancelada' } : r));
+    } catch {
+      alert('Error de conexión. Intenta de nuevo.');
+    } finally {
+      setCancellingId(null);
     }
-    setCancellingId(null);
   };
 
   const formatFecha = (fechaStr: string) => {

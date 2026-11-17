@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
-import { createClient } from '@supabase/supabase-js';
+import { isApiError, requireSalonOwner } from '@/lib/api-auth';
+import { getSupabaseAdmin } from '@/lib/supabaseAdmin';
 
 function getStripe() {
   const secretKey = process.env.STRIPE_SECRET_KEY;
@@ -8,22 +9,20 @@ function getStripe() {
   return new Stripe(secretKey, { apiVersion: '2026-08-26.dahlia' });
 }
 
-function getSupabaseAdmin() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-  return createClient(url, serviceKey);
-}
-
 export async function POST(request: NextRequest) {
   try {
+    const body = await request.json();
+    const salonId = body?.salon_id;
+
+    if (typeof salonId !== 'string' || !salonId) {
+      return NextResponse.json({ error: 'salon_id requerido' }, { status: 400 });
+    }
+
+    const auth = await requireSalonOwner(salonId);
+    if (isApiError(auth)) return auth;
+
     const supabase = getSupabaseAdmin();
     const stripe = getStripe();
-    const body = await request.json();
-    const { salonId } = body;
-
-    if (!salonId) {
-      return NextResponse.json({ error: 'salonId requerido' }, { status: 400 });
-    }
 
     const { data: salon, error: salonError } = await supabase
       .from('salones')
@@ -71,10 +70,10 @@ export async function POST(request: NextRequest) {
     });
 
     return NextResponse.json({ url: session.url });
-  } catch (error: any) {
+  } catch (error) {
     console.error('Stripe checkout error:', error);
     return NextResponse.json(
-      { error: error.message || 'Error al crear sesión de pago' },
+      { error: error instanceof Error ? error.message : 'Error al crear sesión de pago' },
       { status: 500 }
     );
   }

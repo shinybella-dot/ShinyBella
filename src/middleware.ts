@@ -37,13 +37,23 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(redirectUrl);
     }
 
+    const { data: banRow } = await supabase
+      .from('profiles')
+      .select('banned_at')
+      .eq('id', user.id)
+      .maybeSingle();
+
+    if (banRow?.banned_at) {
+      return NextResponse.redirect(new URL('/unauthorized', request.url));
+    }
+
     const { data: profile } = await supabase
       .from('profiles')
       .select('rol')
       .eq('id', user.id)
-      .single();
+      .maybeSingle();
 
-    const rol = profile?.rol || user.user_metadata?.rol || 'cliente';
+    const rol = profile?.rol ?? 'cliente';
 
     if (isAdminRoute && rol !== 'admin') {
       return NextResponse.redirect(new URL('/unauthorized', request.url));

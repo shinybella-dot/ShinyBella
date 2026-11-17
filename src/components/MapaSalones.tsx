@@ -101,7 +101,7 @@ export default function MapaSalones({
     if (mapRef.current || !containerRef.current) return;
 
     const map = L.map(containerRef.current, {
-      center: userLocation || DEFAULT_CENTER,
+      center: DEFAULT_CENTER,
       zoom: DEFAULT_ZOOM,
       zoomControl: false,
       scrollWheelZoom: true,
@@ -118,11 +118,12 @@ export default function MapaSalones({
 
     mapRef.current = map;
     setMapReady(true);
-  }, [userLocation]);
+  }, []);
 
   useEffect(() => {
     initMap();
     return () => {
+      markersRef.current.clear();
       if (mapRef.current) {
         mapRef.current.remove();
         mapRef.current = null;
@@ -130,6 +131,12 @@ export default function MapaSalones({
       }
     };
   }, [initMap]);
+
+  useEffect(() => {
+    if (mapRef.current && userLocation) {
+      mapRef.current.setView(userLocation, 15, { animate: true });
+    }
+  }, [userLocation]);
 
   useEffect(() => {
     if (!mapReady || !mapRef.current) return;

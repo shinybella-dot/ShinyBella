@@ -6,7 +6,7 @@ import Badge from '@/components/ui/Badge';
 import Modal from '@/components/ui/Modal';
 import DocumentViewer from './DocumentViewer';
 import { ConfirmDialog } from '@/components/ui/Modal';
-import { Mail, MapPin, Phone, Building2, User, Clock, FileText, AlertCircle, CheckCircle, XCircle, X } from 'lucide-react';
+import { Mail, MapPin, Phone, Building2, User, Clock, FileText, AlertCircle, CheckCircle, XCircle } from 'lucide-react';
 
 interface Solicitud {
   id: string;
@@ -32,6 +32,9 @@ interface Solicitud {
     dui_url?: string;
     patente_url?: string;
     selfie_url?: string;
+    dui_path?: string;
+    patente_path?: string;
+    selfie_path?: string;
   };
   admin_notas?: string;
   creado_en: string;
@@ -66,6 +69,7 @@ export default function SolicitudDetalleModal({
   const [showRejectConfirm, setShowRejectConfirm] = useState(false);
   const [showApproveConfirm, setShowApproveConfirm] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
+  const [viewerDoc, setViewerDoc] = useState<{ path: string; nombre: string } | null>(null);
 
   const handleAprobar = async () => {
     if (!solicitud) return;
@@ -92,12 +96,20 @@ export default function SolicitudDetalleModal({
 
   if (!solicitud || !isOpen) return null;
 
-  const docs = Object.entries(solicitud.documentos)
-    .filter(([, url]) => url)
-    .map(([key, url]) => ({
-      nombre: key === 'dui_url' ? 'DUI (frente/reverso)' : key === 'patente_url' ? 'Patente de comercio' : 'Selfie con DUI',
-      url: url!,
-      tipo: 'pdf' as const,
+  const nombresDocumentos: Record<string, string> = {
+    dui_url: 'DUI (frente/reverso)',
+    dui_path: 'DUI (frente/reverso)',
+    patente_url: 'Patente de comercio',
+    patente_path: 'Patente de comercio',
+    selfie_url: 'Selfie con DUI',
+    selfie_path: 'Selfie con DUI',
+  };
+
+  const docs = Object.entries(solicitud.documentos ?? {})
+    .filter(([, path]) => typeof path === 'string' && path.trim() !== '')
+    .map(([key, path]) => ({
+      nombre: nombresDocumentos[key] ?? 'Documento',
+      path: path as string,
     }));
 
   return (
@@ -207,8 +219,8 @@ export default function SolicitudDetalleModal({
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 {docs.map((doc) => (
                   <button
-                    key={doc.nombre}
-                    onClick={() => { /* DocumentViewer se maneja fuera */ }}
+                    key={doc.path}
+                    onClick={() => setViewerDoc({ path: doc.path, nombre: doc.nombre })}
                     className="p-4 rounded-xl border border-warm-steel/20 hover:border-accent/50 hover:bg-accent/5 transition-all text-left group"
                   >
                     <div className="flex items-center gap-3 mb-2">
@@ -309,11 +321,10 @@ export default function SolicitudDetalleModal({
         </div>
       </ConfirmDialog>
 
-      {docs.length > 0 && (
+      {viewerDoc && (
         <DocumentViewer
-          documents={docs}
-          onClose={() => {}}
-          title={`Documentos - ${solicitud.datos_negocio.nombreSalon}`}
+          documento={viewerDoc}
+          onClose={() => setViewerDoc(null)}
         />
       )}
     </Modal>

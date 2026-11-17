@@ -1,20 +1,41 @@
 'use client';
 
-import { useState, useCallback, useRef } from 'react';
-import { Upload, X, FileText, Image, CheckCircle, AlertCircle } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { createBrowserClient } from '@supabase/ssr';
+import { Upload, X, FileText, CheckCircle, AlertCircle } from 'lucide-react';
+
+interface CurrentFile {
+  name: string;
+  url: string;
+  tipo: 'pdf' | 'image';
+}
 
 interface FileUploadProps {
   label: string;
   accept?: string;
   maxSizeMB?: number;
-  onFileSelect: (file: File | null) => void;
-  currentFile?: { name: string; url: string; tipo: 'pdf' | 'image' } | null;
+  onFileSelect: (value: File | string | null) => void;
+  currentFile?: CurrentFile | null;
   disabled?: boolean;
   required?: boolean;
   error?: string;
+  uploadPath?: string;
 }
 
 const ALLOWED_TYPES = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp'];
+
+function getExtension(name: string) {
+  const index = name.lastIndexOf('.');
+  return index >= 0 ? name.slice(index + 1).toLowerCase() : '';
+}
+
+function getAllowedExtensions(accept: string) {
+  return accept
+    .split(',')
+    .map((value) => value.trim().toLowerCase())
+    .filter((value) => value.startsWith('.'))
+    .map((value) => value.slice(1));
+}
 
 export default function FileUpload({
   label,
@@ -25,65 +46,121 @@ export default function FileUpload({
   disabled = false,
   required = false,
   error,
+  uploadPath,
 }: FileUploadProps) {
   const [dragActive, setDragActive] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
+  const [previewTipo, setPreviewTipo] = useState<'pdf' | 'image' | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [validationError, setValidationError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const previewUrlRef = useRef<string | null>(null);
+
+  const clearPreview = useCallback(() => {
+    if (previewUrlRef.current?.startsWith('blob:')) {
+      URL.revokeObjectURL(previewUrlRef.current);
+    }
+    previewUrlRef.current = null;
+    setPreview(null);
+    setPreviewTipo(null);
+  }, []);
+
+  useEffect(() => () => {
+    if (previewUrlRef.current?.startsWith('blob:')) {
+      URL.revokeObjectURL(previewUrlRef.current);
+    }
+  }, []);
 
   const validateFile = useCallback((file: File): string | null => {
     if (!ALLOWED_TYPES.includes(file.type)) {
       return 'Solo PDF, JPG, PNG o WebP';
     }
+    const allowedExtensions = getAllowedExtensions(accept);
+    if (allowedExtensions.length > 0 && !allowedExtensions.includes(getExtension(file.name))) {
+      return `Formato no permitido. Usa ${accept}`;
+    }
     if (file.size > maxSizeMB * 1024 * 1024) {
       return `Máximo ${maxSizeMB}MB`;
     }
     return null;
-  }, [maxSizeMB]);
+  }, [accept, maxSizeMB]);
 
-  const handleFile = useCallback((file: File | null) => {
+  const handleFile = useCallback(async (file: File | null) => {
+    if (disabled || uploading) return;
+
     if (!file) {
+      clearPreview();
+      setValidationError(null);
       onFileSelect(null);
-      setPreview(null);
       return;
     }
 
     const err = validateFile(file);
     if (err) {
+      clearPreview();
+      setValidationError(err);
       onFileSelect(null);
+      if (fileInputRef.current) fileInputRef.current.value = '';
       return;
     }
 
+    setValidationError(null);
     setUploading(true);
     setUploadProgress(0);
 
-    // Simulate upload progress
-    const interval = setInterval(() => {
-      setUploadProgress((p) => Math.min(p + 10, 90));
-    }, 100);
+    try {
+      if (uploadPath) {
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+        const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+        if (!supabaseUrl || !supabaseAnonKey) {
+          throw new Error('Credenciales de Supabase no configuradas');
+        }
 
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      clearInterval(interval);
-      setUploadProgress(100);
-      setTimeout(() => {
-        setUploading(false);
-        setUploadProgress(0);
-      }, 300);
-      const url = e.target?.result as string;
-      setPreview(url);
-      onFileSelect(file);
-    };
-    reader.readAsDataURL(file);
-  }, [onFileSelect, validateFile]);
+        const supabase = createBrowserClient(supabaseUrl, supabaseAnonKey);
+        const path = `${uploadPath.replace(/\/$/, '')}/${crypto.randomUUID()}-${file.name}`;
+        const { error: uploadError } = await supabase.storage
+          .from('verificaciones')
+          .upload(path, file, { upsert: false, contentType: file.type });
+
+        if (uploadError) throw uploadError;
+
+        clearPreview();
+        previewUrlRef.current = URL.createObjectURL(file);
+        setPreview(previewUrlRef.current);
+        setPreviewTipo(file.type === 'application/pdf' ? 'pdf' : 'image');
+        setUploadProgress(100);
+        onFileSelect(path);
+      } else {
+        clearPreview();
+        previewUrlRef.current = URL.createObjectURL(file);
+        setPreview(previewUrlRef.current);
+        setPreviewTipo(file.type === 'application/pdf' ? 'pdf' : 'image');
+        setUploadProgress(100);
+        onFileSelect(file);
+      }
+    } catch (uploadError) {
+      clearPreview();
+      setValidationError(
+        uploadPath
+          ? 'No se pudo subir el archivo. Intenta de nuevo.'
+          : 'No se pudo preparar el archivo.'
+      );
+      onFileSelect(null);
+      console.error('FileUpload error:', uploadError);
+    } finally {
+      setUploading(false);
+      setUploadProgress(0);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  }, [clearPreview, disabled, onFileSelect, uploadPath, uploading, validateFile]);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setDragActive(false);
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      handleFile(e.dataTransfer.files[0]);
+      void handleFile(e.dataTransfer.files[0]);
     }
   }, [handleFile]);
 
@@ -100,21 +177,22 @@ export default function FileUpload({
   }, []);
 
   const removeFile = () => {
-    handleFile(null);
+    void handleFile(null);
   };
 
   const triggerFileInput = () => {
-    fileInputRef.current?.click();
+    if (!disabled && !uploading) fileInputRef.current?.click();
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      handleFile(e.target.files[0]);
+      void handleFile(e.target.files[0]);
     }
   };
 
-  const isImage = currentFile?.tipo === 'image' || preview?.startsWith('data:image');
-  const isPdf = currentFile?.tipo === 'pdf' || preview?.startsWith('data:application/pdf');
+  const displayedError = error || validationError;
+  const isImage = currentFile?.tipo === 'image' || previewTipo === 'image';
+  const isPdf = currentFile?.tipo === 'pdf' || previewTipo === 'pdf';
 
   return (
     <div className="w-full">
@@ -131,7 +209,7 @@ export default function FileUpload({
             ? 'border-accent bg-accent/5'
             : currentFile || preview
             ? 'border-green-300 bg-green-50'
-            : error
+            : displayedError
             ? 'border-red-300 bg-red-50'
             : 'border-warm-steel/20 hover:border-accent/50'
         }`}
@@ -174,7 +252,7 @@ export default function FileUpload({
               {isPdf && (
                 <FileText className="w-12 h-12 text-red-500" />
               )}
-              {!isImage && !isPdf && currentFile && (
+              {!isImage && !isPdf && (
                 <FileText className="w-12 h-12 text-warm-steel/50" />
               )}
               <button
@@ -185,14 +263,9 @@ export default function FileUpload({
                 <X className="w-4 h-4" />
               </button>
             </div>
-            <div className="flex flex-col gap-1">
-              <p className="font-medium text-concrete truncate max-w-[200px]">
-                {currentFile?.name || 'Archivo seleccionado'}
-              </p>
-              <p className="text-xs text-warm-steel/50">
-                {currentFile ? `${(currentFile as any).size ? ((currentFile as any).size / 1024).toFixed(1) + ' KB' : ''}` : ''}
-              </p>
-            </div>
+            <p className="font-medium text-concrete truncate max-w-[200px]">
+              {currentFile?.name || 'Archivo seleccionado'}
+            </p>
           </div>
         ) : (
           <div className="flex flex-col items-center gap-3">
@@ -203,14 +276,14 @@ export default function FileUpload({
         )}
       </div>
 
-      {error && (
+      {displayedError && (
         <div className="mt-2 flex items-center gap-1.5 text-red-600 text-sm">
           <AlertCircle className="w-4 h-4" />
-          <span>{error}</span>
+          <span>{displayedError}</span>
         </div>
       )}
 
-      {currentFile && !error && !uploading && (
+      {currentFile && !displayedError && !uploading && (
         <div className="mt-2 flex items-center gap-1.5 text-green-600 text-sm">
           <CheckCircle className="w-4 h-4" />
           <span>Archivo listo para enviar</span>

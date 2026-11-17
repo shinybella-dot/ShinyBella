@@ -1,23 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { getSupabaseAdmin } from '@/lib/supabaseAdmin';
+import { isApiError, requireAdmin } from '@/lib/api-auth';
 import { sendSolicitudAprobadaEmail, sendSolicitudRechazadaEmail } from '@/lib/resend';
 
-function getSupabaseAdmin() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-  return createClient(url, serviceKey);
+const SORT_COLUMNS = ['creado_en', 'created_at', 'nombre', 'direccion', 'estado', 'rol'];
+
+function sanitizeSearch(value: string) {
+  return value.replace(/[\\,().]/g, (char) => `\\${char}`);
+}
+
+function sanitizeSort(value: string | null, fallback: string) {
+  return value && SORT_COLUMNS.includes(value) ? value : fallback;
 }
 
 export async function GET(request: NextRequest) {
+  const auth = await requireAdmin();
+  if (isApiError(auth)) return auth;
+
   try {
     const supabase = getSupabaseAdmin();
     const { searchParams } = new URL(request.url);
 
-    const page = parseInt(searchParams.get('page') || '1');
-    const pageSize = parseInt(searchParams.get('pageSize') || '10');
+    const page = Math.max(1, Number.parseInt(searchParams.get('page') || '1', 10) || 1);
+    const pageSize = Math.min(100, Math.max(1, Number.parseInt(searchParams.get('pageSize') || '10', 10) || 10));
     const estado = searchParams.get('estado');
     const search = searchParams.get('search');
-    const sort = searchParams.get('sort') || 'creado_en';
+    const sort = sanitizeSort(searchParams.get('sort'), 'creado_en');
     const order = searchParams.get('order') || 'desc';
 
     let query = supabase
@@ -37,7 +45,8 @@ export async function GET(request: NextRequest) {
     }
 
     if (search) {
-      query = query.or(`datos_negocio->>nombreSalon.ilike.%${search}%,datos_responsable->>responsable.ilike.%${search}%,datos_responsable->>email.ilike.%${search}%`);
+      const safeSearch = sanitizeSearch(search);
+      query = query.or(`datos_negocio->>nombreSalon.ilike.%${safeSearch}%,datos_responsable->>responsable.ilike.%${safeSearch}%,datos_responsable->>email.ilike.%${safeSearch}%`);
     }
 
     query = query.order(sort, { ascending: order === 'asc' });
@@ -60,6 +69,9 @@ export async function GET(request: NextRequest) {
 }
 
 export async function PATCH(request: NextRequest) {
+  const auth = await requireAdmin();
+  if (isApiError(auth)) return auth;
+
   try {
     const supabase = getSupabaseAdmin();
     const body = await request.json();
@@ -89,7 +101,7 @@ export async function PATCH(request: NextRequest) {
         .update({
           estado: 'aprobada',
           revisado_en: new Date().toISOString(),
-          revisado_por: (await supabase.auth.getUser()).data.user?.id,
+          revisado_por: auth.user.id,
         })
         .eq('id', solicitudId);
 
@@ -116,40 +128,36 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ success: true, message: 'Solicitud aprobada' });
     }
 
-    if (action === 'rechazar') {
-      const { error: updateSolicitudError } = await supabase
-        .from('solicitudes_afiliacion')
-        .update({
-          estado: 'rechazada',
-          revisado_en: new Date().toISOString(),
-          revisado_por: (await supabase.auth.getUser()).data.user?.id,
-          admin_notas: motivo.trim(),
-        })
-        .eq('id', solicitudId);
+    const { error: updateSolicitudError } = await supabase
+      .from('solicitudes_afiliacion')
+      .update({
+        estado: 'rechazada',
+        revisado_en: new Date().toISOString(),
+        revisado_por: auth.user.id,
+        admin_notas: motivo.trim(),
+      })
+      .eq('id', solicitudId);
 
-      if (updateSolicitudError) throw updateSolicitudError;
+    if (updateSolicitudError) throw updateSolicitudError;
 
-      const { error: updateSalonError } = await supabase
-        .from('salones')
-        .update({
-          estado_verificacion: 'rechazada',
-          rechazado_motivo: motivo.trim(),
-        })
-        .eq('id', solicitud.salon_id);
+    const { error: updateSalonError } = await supabase
+      .from('salones')
+      .update({
+        estado_verificacion: 'rechazada',
+        rechazado_motivo: motivo.trim(),
+      })
+      .eq('id', solicitud.salon_id);
 
-      if (updateSalonError) throw updateSalonError;
+    if (updateSalonError) throw updateSalonError;
 
-      await sendSolicitudRechazadaEmail(
-        solicitud.datos_responsable.email,
-        `AF-${new Date(solicitud.creado_en).getFullYear()}-${solicitud.id.slice(-4).toUpperCase()}`,
-        solicitud.datos_negocio.nombreSalon,
-        motivo.trim()
-      );
+    await sendSolicitudRechazadaEmail(
+      solicitud.datos_responsable.email,
+      `AF-${new Date(solicitud.creado_en).getFullYear()}-${solicitud.id.slice(-4).toUpperCase()}`,
+      solicitud.datos_negocio.nombreSalon,
+      motivo.trim()
+    );
 
-      return NextResponse.json({ success: true, message: 'Solicitud rechazada' });
-    }
-
-    return NextResponse.json({ error: 'Acción no implementada' }, { status: 500 });
+    return NextResponse.json({ success: true, message: 'Solicitud rechazada' });
   } catch (error) {
     console.error('Error processing solicitud:', error);
     return NextResponse.json({ error: 'Error al procesar la solicitud' }, { status: 500 });

@@ -14,6 +14,13 @@ import type { Salon, Servicio, Estilista } from '@/lib/types';
 
 const supabase = createClient();
 
+function toLocalDateString(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 export default function SalonPage() {
   const params = useParams();
   const router = useRouter();
@@ -52,7 +59,7 @@ export default function SalonPage() {
     const abortController = new AbortController();
 
     const fetchBookedSlots = async () => {
-      const fechaStr = selectedFecha.toISOString().split('T')[0];
+      const fechaStr = toLocalDateString(selectedFecha);
       
       const { data: reservas } = await supabase
         .from('reservas')
@@ -108,7 +115,7 @@ export default function SalonPage() {
     if (!selectedServicio || !selectedFecha || !selectedHora || !selectedEstilistaId) return;
 
     // Re-verificar que el slot sigue libre antes de ir a checkout
-    const fechaStr = selectedFecha.toISOString().split('T')[0];
+    const fechaStr = toLocalDateString(selectedFecha);
     const { data: existingReservas } = await supabase
       .from('reservas')
       .select('id')
@@ -151,7 +158,7 @@ export default function SalonPage() {
   };
 
   const formatFecha = (date: Date) => {
-    return date.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
+    return new Intl.DateTimeFormat('es-ES', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'America/El_Salvador' }).format(date);
   };
 
   return (

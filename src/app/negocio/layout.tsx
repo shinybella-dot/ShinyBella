@@ -4,29 +4,30 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
 import { createBrowserClient } from '@supabase/ssr';
-import { Menu, X, Bell, User, LogOut, ChevronDown, Scissors, AlertCircle, XCircle, Clock, LayoutDashboard, Link2 } from 'lucide-react';
-import NegocioSidebar from '@/components/negocio/NegocioSidebar';
+import { Menu, Bell, User, LogOut, ChevronDown, Scissors, AlertCircle, XCircle, Clock, LayoutDashboard, Link2 } from 'lucide-react';
+import NegocioSidebar, { NegocioTabProvider } from '@/components/negocio/NegocioSidebar';
 import { useAuth } from '@/hooks/useAuth';
 import { useNegocio } from '@/hooks/useNegocio';
 
 export default function NegocioLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const { user, profile, isNegocio, loading: authLoading } = useAuth();
+  const { user, profile, isNegocio, isAdmin, loading: authLoading } = useAuth();
   const { salon, estado, loading: negocioLoading } = useNegocio();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
 
   useEffect(() => {
     if (authLoading || negocioLoading) return;
+    if (isAdmin) return;
     if (!isNegocio || !salon) {
       router.push('/negocio/estado');
     }
-  }, [isNegocio, salon, authLoading, negocioLoading, router]);
+  }, [isAdmin, isNegocio, salon, authLoading, negocioLoading, router]);
 
   const loading = authLoading || negocioLoading;
 
-  if (loading || !isNegocio) {
+  if (loading || (!isNegocio && !isAdmin)) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-surface-light">
         <div className="w-8 h-8 border-4 border-accent border-t-transparent rounded-full animate-spin" aria-hidden="true" />
@@ -58,6 +59,7 @@ export default function NegocioLayout({ children }: { children: React.ReactNode 
   const estadoInfo = getEstadoLabel(estado);
 
   return (
+    <NegocioTabProvider>
     <div className="flex min-h-screen bg-surface-light">
       <NegocioSidebar
         salonName={salon?.nombre}
@@ -148,6 +150,12 @@ export default function NegocioLayout({ children }: { children: React.ReactNode 
         </header>
 
         <main className="p-4 lg:p-6">
+          {isAdmin && (
+            <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-xl text-sm text-blue-800">
+              Estás viendo esta sección como administrador. No tienes un salón propio asociado.
+            </div>
+          )}
+
           {estado === 'aprobada_sin_pago' && pathname !== '/negocio/pago-plan' && (
             <div className="mb-6 p-4 bg-orange-50 border border-orange-200 rounded-xl flex items-center justify-between animate-slide-up">
               <div className="flex items-center gap-3">
@@ -238,5 +246,6 @@ export default function NegocioLayout({ children }: { children: React.ReactNode 
         .animate-slide-up { animation: slide-up 0.2s ease-out; }
       `}</style>
     </div>
+    </NegocioTabProvider>
   );
 }
